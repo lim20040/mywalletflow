@@ -792,7 +792,7 @@
   let entries = [];
   let accounts = []; // {id, name}
   let recurringRules = []; // {id, name, type, category, accountId, amount, day, startDate, active, generatedThrough}
-  let view = 'home'; // 'home' | 'accounts' | 'recurring' | 'auth'
+  let view = 'home'; // 'home' | 'accounts' | 'recurring'
   let viewYear, viewMonth;
   let currentType = 'expense';
   let selectedAccountId = 'all';
@@ -801,12 +801,9 @@
   let editingRecurringId = null;
   let editRuleType = 'expense';
 
-  let syncMode = false;          // true면 Firestore로 동기화 중
-  let currentUser = null;
+  let syncMode = false;          // true면 Firestore로 자동 동기화 중 (로그인 없음, 모든 기기 공유)
+  const SHARED_DOC_PATH = ['budgets', 'shared-budget']; // 모든 기기가 함께 보는 하나의 문서
   let unsubscribeSnapshot = null;
-  let authMode = 'login';        // 'login' | 'signup'
-  let authError = '';
-  let authBusy = false;
 
   const today = new Date();
   const todayDate0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -865,9 +862,9 @@
   }
 
   async function persistAll(){
-    if(syncMode && fbDb && currentUser){
+    if(syncMode && fbDb){
       try{
-        await fbDb.collection('budgets').doc(currentUser.uid).set({
+        await fbDb.collection(SHARED_DOC_PATH[0]).doc(SHARED_DOC_PATH[1]).set({
           accounts: JSON.stringify(accounts),
           entries: JSON.stringify(entries),
           recurringRules: JSON.stringify(recurringRules),
@@ -884,7 +881,7 @@
   }
 
   async function subscribeFirestore(){
-    const docRef = fbDb.collection('budgets').doc(currentUser.uid);
+    const docRef = fbDb.collection(SHARED_DOC_PATH[0]).doc(SHARED_DOC_PATH[1]);
     if(unsubscribeSnapshot){ unsubscribeSnapshot(); unsubscribeSnapshot = null; }
     unsubscribeSnapshot = docRef.onSnapshot(async (snap) => {
       const data = snap.data();
@@ -895,16 +892,15 @@
       await applyRecurringAll();
       renderCurrentView();
     }, (err) => {
-      console.error(err);
-      authError = '동기화 중 문제가 발생했어요: ' + err.message;
-      renderAuth();
+      console.error('동기화 오류', err);
+      syncMode = false;
+      loadAllLocal().then(renderCurrentView);
     });
   }
 
   function renderCurrentView(){
     if(view === 'accounts') renderAccounts();
     else if(view === 'recurring') renderRecurring();
-    else if(view === 'auth') renderAuth();
     else renderHome();
   }
 
@@ -1146,10 +1142,7 @@
         <div class="header-btns">
           <button class="ghost-btn" id="manageRecBtn">🔁 고정비</button>
           <button class="ghost-btn" id="manageAccBtn">⚙ 계좌 관리</button>
-          ${syncMode
-            ? `<button class="ghost-btn" id="logoutBtn">☁ ${escapeHtml(currentUser && currentUser.email ? currentUser.email : '')} · 로그아웃</button>`
-            : (firebaseReady() ? `<button class="ghost-btn" id="gotoLoginBtn">☁ 동기화 켜기</button>` : '')
-          }
+          ${syncMode ? `<span class="ghost-btn" style="cursor:default;" title="모든 기기에 자동 동기화 중">☁ 동기화 중</span>` : ''}
         </div>
       </div>
 
@@ -1243,14 +1236,6 @@
     document.getElementById('nextMonth').onclick = () => { viewMonth++; if(viewMonth>11){viewMonth=0;viewYear++;} renderHome(); };
     document.getElementById('manageAccBtn').onclick = () => { view='accounts'; renderAccounts(); };
     document.getElementById('manageRecBtn').onclick = () => { view='recurring'; renderRecurring(); };
-    const logoutBtn = document.getElementById('logoutBtn');
-    if(logoutBtn) logoutBtn.onclick = async () => {
-      if(!confirm('로그아웃할까요? 이 기기에서는 로그인해야 다시 데이터를 볼 수 있어요.')) return;
-      if(unsubscribeSnapshot){ unsubscribeSnapshot(); unsubscribeSnapshot = null; }
-      await fbAuth.signOut();
-    };
-    const gotoLoginBtn = document.getElementById('gotoLoginBtn');
-    if(gotoLoginBtn) gotoLoginBtn.onclick = () => { view='auth'; authError=''; renderAuth(); };
     const toAccLink = document.getElementById('toAccountsLink');
     if(toAccLink) toAccLink.onclick = () => { view='accounts'; renderAccounts(); };
     const toRecLink = document.getElementById('toRecLink');
@@ -1669,101 +1654,25 @@
     });
   }
 
-  /* ===================== AUTH VIEW ===================== */
-  function renderAuth(){
-    view = 'auth';
-    const isSignup = authMode === 'signup';
-    app.innerHTML = `
-      <div class="header-row">
-        <div><h1>나의 가계부</h1><p>로그인하면 핸드폰·컴퓨터에서 같은 데이터를 볼 수 있어요</p></div>
-      </div>
-      <div class="mgmt-add-card" style="max-width:380px; margin:30px auto 0;">
-        <h2>${isSignup ? '회원가입' : '로그인'}</h2>
-        <div class="field-row">
-          <div class="field full"><label for="auth-email">이메일</label><input type="email" id="auth-email" placeholder="you@example.com" autocomplete="username" /></div>
-        </div>
-        <div class="field-row">
-          <div class="field full"><label for="auth-pw">비밀번호</label><input type="password" id="auth-pw" placeholder="6자 이상" autocomplete="${isSignup?'new-password':'current-password'}" /></div>
-        </div>
-        <button class="add-btn" id="authSubmitBtn" ${authBusy ? 'disabled' : ''}>${authBusy ? '처리 중…' : (isSignup ? '회원가입하고 시작하기' : '로그인')}</button>
-        <div class="form-msg">${escapeHtml(authError)}</div>
-        <p style="text-align:center; font-size:12.5px; color:var(--ink-soft); margin-top:10px;">
-          ${isSignup ? '이미 계정이 있으신가요?' : '처음이신가요?'}
-          <button id="authToggleBtn" style="background:none;border:none;color:var(--gold);font-weight:700;cursor:pointer;text-decoration:underline;font-size:12.5px;">${isSignup ? '로그인' : '회원가입'}</button>
-        </p>
-        <p style="text-align:center; margin-top:14px; border-top:1px dashed var(--rule-strong); padding-top:12px;">
-          <button id="skipAuthBtn" style="background:none;border:none;color:var(--ink-soft);font-size:12px;cursor:pointer;text-decoration:underline;">동기화 없이 이 기기에서만 계속 쓰기</button>
-        </p>
-      </div>
-    `;
-
-    document.getElementById('authToggleBtn').onclick = () => {
-      authMode = isSignup ? 'login' : 'signup';
-      authError = '';
-      renderAuth();
-    };
-    document.getElementById('skipAuthBtn').onclick = async () => {
-      syncMode = false; currentUser = null;
-      await loadAllLocal();
-      view = 'home';
-      renderHome();
-    };
-    document.getElementById('authSubmitBtn').onclick = async () => {
-      const email = document.getElementById('auth-email').value.trim();
-      const pw = document.getElementById('auth-pw').value;
-      if(!email || !pw){ authError = '이메일과 비밀번호를 입력해주세요.'; renderAuth(); return; }
-      authBusy = true; authError = ''; renderAuth();
-      try{
-        if(isSignup){
-          await fbAuth.createUserWithEmailAndPassword(email, pw);
-        } else {
-          await fbAuth.signInWithEmailAndPassword(email, pw);
-        }
-        // 성공하면 onAuthStateChanged가 나머지를 처리함
-      } catch(err){
-        authBusy = false;
-        authError = friendlyAuthError(err);
-        renderAuth();
-      }
-    };
-  }
-
-  function friendlyAuthError(err){
-    switch(err.code){
-      case 'auth/email-already-in-use': return '이미 가입된 이메일이에요. 로그인해주세요.';
-      case 'auth/invalid-email': return '이메일 형식이 올바르지 않아요.';
-      case 'auth/weak-password': return '비밀번호는 6자 이상이어야 해요.';
-      case 'auth/user-not-found':
-      case 'auth/wrong-password':
-      case 'auth/invalid-credential': return '이메일 또는 비밀번호가 올바르지 않아요.';
-      default: return '오류가 발생했어요: ' + err.message;
-    }
-  }
-
   (async function init(){
     if(firebaseReady()){
-      fbAuth.onAuthStateChanged(async (user) => {
-        if(unsubscribeSnapshot){ unsubscribeSnapshot(); unsubscribeSnapshot = null; }
-        if(user){
-          currentUser = user;
-          syncMode = true;
-          authBusy = false;
-          try{
-            const docRef = fbDb.collection('budgets').doc(user.uid);
-            const snap = await docRef.get();
-            if(!snap.exists){
-              // 이 계정으로는 첫 로그인: 이 기기에 있던 데이터를 클라우드로 올려줌
-              await loadAllLocal();
-              await persistAll();
-            }
-          } catch(err){ console.error(err); }
-          await subscribeFirestore();
-        } else {
-          currentUser = null;
-          syncMode = false;
-          renderAuth();
+      try{
+        await fbAuth.signInAnonymously();
+        syncMode = true;
+        const docRef = fbDb.collection(SHARED_DOC_PATH[0]).doc(SHARED_DOC_PATH[1]);
+        const snap = await docRef.get();
+        if(!snap.exists){
+          // 클라우드에 아직 데이터가 없으면, 이 기기의 로컬 데이터가 있으면 올려주고 없으면 기본값으로 시작
+          await loadAllLocal();
+          await persistAll();
         }
-      });
+        await subscribeFirestore();
+      } catch(err){
+        console.error('동기화 연결 실패, 이 기기에만 저장합니다', err);
+        syncMode = false;
+        await loadAllLocal();
+        renderHome();
+      }
     } else {
       syncMode = false;
       await loadAllLocal();
