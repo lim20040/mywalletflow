@@ -1,0 +1,1776 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>나의 가계부</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F3F7F0;
+    --rule:#BFDAC7;
+    --rule-strong:#9FC6AC;
+    --card:#FEFDFA;
+    --ink:#1F2E28;
+    --ink-soft:#5A6E64;
+    --income:#2E6B4E;
+    --income-bg:#E4F1E8;
+    --expense:#B23A32;
+    --expense-bg:#FBEAE8;
+    --savings:#2E5A93;
+    --savings-bg:#E5ECF6;
+    --gold:#A9812E;
+    --gold-soft:#EFE3C2;
+    --shadow: 0 2px 10px rgba(31,46,40,0.08);
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 30px,
+        var(--rule) 31px,
+        transparent 32px
+      ),
+      var(--paper);
+    color:var(--ink);
+    font-family:'Noto Sans KR', sans-serif;
+    min-height:100vh;
+    padding: 20px 14px 60px;
+  }
+  .wrap{
+    max-width: 720px;
+    margin: 0 auto;
+  }
+
+  /* ---------- Header ---------- */
+  .header-row{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+  .header-row h1{
+    font-weight:900;
+    font-size: 26px;
+    margin:0 0 2px;
+    letter-spacing: -0.5px;
+  }
+  .header-row p{
+    margin:0;
+    font-size:12.5px;
+    color:var(--ink-soft);
+  }
+  .header-btns{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  .ghost-btn{
+    flex-shrink:0;
+    border:1.5px solid var(--rule-strong);
+    background:var(--card);
+    color:var(--ink);
+    font-size:12.5px;
+    font-weight:700;
+    padding:8px 13px;
+    border-radius:9px;
+    cursor:pointer;
+    box-shadow: var(--shadow);
+    white-space:nowrap;
+  }
+  .ghost-btn:hover{ background:var(--gold-soft); }
+
+  /* ---------- Overall status (총정리) ---------- */
+  .overall{
+    background: var(--ink);
+    color: var(--paper);
+    border-radius:16px;
+    padding: 20px 20px 18px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+  }
+  .overall .ov-label{
+    font-size:12px;
+    color: #B9CBC1;
+    font-weight:500;
+    margin-bottom:4px;
+  }
+  .overall .ov-main{
+    display:flex;
+    align-items:baseline;
+    gap:8px;
+    margin-bottom: 16px;
+  }
+  .overall .ov-main .num{
+    font-size:30px;
+    font-weight:900;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.5px;
+  }
+  .overall .ov-main .cap{
+    font-size:12.5px;
+    color:#B9CBC1;
+  }
+  .ov-grid{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap:10px;
+    padding-top:14px;
+    padding-bottom: 14px;
+    border-top: 1px solid rgba(255,255,255,0.15);
+  }
+  .ov-grid .ov-item .t{
+    font-size:11px;
+    color:#B9CBC1;
+    margin-bottom:4px;
+  }
+  .ov-grid .ov-item .v{
+    font-size:14.5px;
+    font-weight:700;
+    font-variant-numeric: tabular-nums;
+  }
+  .ov-grid .ov-item.income .v{ color:#8FD6AC; }
+  .ov-grid .ov-item.expense .v{ color:#F0A39C; }
+  .ov-grid .ov-item.savings .v{ color:#9AC0F0; }
+
+  .upcoming{
+    border-top: 1px solid rgba(255,255,255,0.15);
+    padding-top: 14px;
+    padding-bottom: 14px;
+  }
+  .upcoming .t-row, .by-account .t-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:10px;
+  }
+  .upcoming .t, .by-account .t{
+    font-size:11px;
+    color:#B9CBC1;
+  }
+  .manage-link{
+    background:none;
+    border:none;
+    color:#D9C98A;
+    font-size:11px;
+    font-weight:700;
+    cursor:pointer;
+    padding:0;
+  }
+  .upcoming-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding: 6px 0;
+    font-size:13px;
+  }
+  .upcoming-row .u-left{ color:#DDEAE2; }
+  .upcoming-row .u-date{ color:#B9CBC1; font-size:11.5px; margin-right:6px; }
+  .upcoming-row .u-amt{ font-weight:700; font-variant-numeric: tabular-nums; color:#F0A39C; }
+
+  .by-account{
+    border-top: 1px solid rgba(255,255,255,0.15);
+    padding-top: 14px;
+  }
+  .acc-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding: 7px 0;
+    font-size:13.5px;
+    border-bottom: 1px dashed rgba(255,255,255,0.12);
+  }
+  .acc-row:last-child{ border-bottom:none; }
+  .acc-row .acc-name{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-weight:500;
+  }
+  .acc-row .acc-name::before{
+    content:"";
+    width:6px; height:6px;
+    border-radius:50%;
+    background:#B9CBC1;
+    display:inline-block;
+    flex-shrink:0;
+  }
+  .acc-row .acc-val{
+    font-weight:800;
+    font-variant-numeric: tabular-nums;
+  }
+  .acc-row .acc-val.neg{ color:#F0A39C; }
+
+  /* ---------- Month nav ---------- */
+  .month-nav{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:16px;
+    margin-bottom:14px;
+  }
+  .month-nav button{
+    width:32px; height:32px;
+    border-radius:50%;
+    border:1px solid var(--rule-strong);
+    background:var(--card);
+    color:var(--ink);
+    font-size:15px;
+    cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow: var(--shadow);
+  }
+  .month-nav button:hover{ background:var(--gold-soft); }
+  .month-label{
+    font-weight:800;
+    font-size:17px;
+    min-width:120px;
+    text-align:center;
+  }
+
+  /* ---------- Account filter tabs ---------- */
+  .acc-tabs{
+    display:flex;
+    gap:8px;
+    overflow-x:auto;
+    padding-bottom:4px;
+    margin-bottom: 16px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .acc-tabs::-webkit-scrollbar{ height:4px; }
+  .acc-tabs::-webkit-scrollbar-thumb{ background:var(--rule-strong); border-radius:4px; }
+  .acc-tab{
+    flex-shrink:0;
+    padding: 7px 14px;
+    border-radius:999px;
+    border:1.5px solid var(--rule-strong);
+    background:var(--card);
+    color:var(--ink-soft);
+    font-size:12.5px;
+    font-weight:700;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .acc-tab.active{
+    background:var(--gold);
+    border-color:var(--gold);
+    color:#fff;
+  }
+
+  /* ---------- Summary cards ---------- */
+  .summary{
+    display:grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap:10px;
+    margin-bottom: 22px;
+  }
+  .sum-card{
+    background:var(--card);
+    border-radius:12px;
+    padding:14px 8px;
+    text-align:center;
+    box-shadow: var(--shadow);
+    border-top: 3px solid var(--rule-strong);
+  }
+  .sum-card.income{ border-top-color: var(--income); }
+  .sum-card.expense{ border-top-color: var(--expense); }
+  .sum-card.savings{ border-top-color: var(--savings); }
+  .sum-card.balance{ border-top-color: var(--gold); }
+  .sum-card .label{
+    font-size:11px;
+    color:var(--ink-soft);
+    margin-bottom:6px;
+    font-weight:500;
+  }
+  .sum-card .value{
+    font-weight:800;
+    font-size:14.5px;
+    font-variant-numeric: tabular-nums;
+    word-break: break-all;
+  }
+  .sum-card.income .value{ color:var(--income); }
+  .sum-card.expense .value{ color:var(--expense); }
+  .sum-card.savings .value{ color:var(--savings); }
+  .sum-card.balance .value{ color:var(--gold); }
+
+  /* ---------- Form card ---------- */
+  .form-card{
+    background:var(--card);
+    border-radius:14px;
+    padding:18px;
+    box-shadow: var(--shadow);
+    margin-bottom: 24px;
+  }
+  .form-card h2{
+    font-size:15px;
+    margin:0 0 14px;
+    font-weight:800;
+    display:flex; align-items:center; gap:6px;
+  }
+  .form-card h2::before{
+    content:"";
+    width:6px; height:6px;
+    background:var(--gold);
+    border-radius:50%;
+    display:inline-block;
+  }
+
+  .type-toggle{
+    display:flex;
+    gap:8px;
+    margin-bottom:12px;
+  }
+  .type-toggle label{
+    flex:1;
+    text-align:center;
+    padding:9px 0;
+    border-radius:8px;
+    border:1.5px solid var(--rule-strong);
+    font-size:13.5px;
+    font-weight:700;
+    cursor:pointer;
+    color:var(--ink-soft);
+    transition: all .15s;
+    user-select:none;
+  }
+  .type-toggle input{ display:none; }
+  .type-toggle label.expense-lbl.active{
+    background:var(--expense-bg); color:var(--expense); border-color:var(--expense);
+  }
+  .type-toggle label.income-lbl.active{
+    background:var(--income-bg); color:var(--income); border-color:var(--income);
+  }
+  .type-toggle label.savings-lbl.active{
+    background:var(--savings-bg); color:var(--savings); border-color:var(--savings);
+  }
+
+  .field-row{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:10px;
+    margin-bottom:10px;
+  }
+  .field{
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+  }
+  .field.full{ grid-column: 1 / -1; }
+  .field label{
+    font-size:11.5px;
+    color:var(--ink-soft);
+    font-weight:500;
+  }
+  .field input, .field select{
+    font-family:'Noto Sans KR', sans-serif;
+    padding:9px 10px;
+    border-radius:8px;
+    border:1.5px solid var(--rule-strong);
+    background:#fff;
+    font-size:14px;
+    color:var(--ink);
+    outline:none;
+    width:100%;
+  }
+  .field input:focus, .field select:focus{
+    border-color:var(--gold);
+  }
+  .field .hint{
+    font-size:11px;
+    color:var(--ink-soft);
+  }
+  .field .hint button{
+    background:none; border:none; padding:0;
+    color:var(--gold); font-weight:700; cursor:pointer;
+    text-decoration:underline;
+    font-size:11px;
+  }
+
+  .add-btn{
+    width:100%;
+    margin-top:6px;
+    padding:11px 0;
+    border:none;
+    border-radius:9px;
+    background:var(--ink);
+    color:var(--paper);
+    font-weight:800;
+    font-size:14.5px;
+    cursor:pointer;
+    letter-spacing: 0.5px;
+    transition: opacity .15s;
+  }
+  .add-btn:hover{ opacity:0.85; }
+  .add-btn:disabled{ opacity:0.4; cursor:not-allowed; }
+  .form-msg{
+    font-size:12px;
+    color:var(--expense);
+    margin-top:6px;
+    min-height:14px;
+  }
+
+  /* ---------- List ---------- */
+  .list-card{
+    background:var(--card);
+    border-radius:14px;
+    padding:18px 18px 8px;
+    box-shadow: var(--shadow);
+  }
+  .list-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:10px;
+  }
+  .list-head h2{
+    font-size:15px;
+    margin:0;
+    font-weight:800;
+    display:flex; align-items:center; gap:6px;
+  }
+  .list-head h2::before{
+    content:"";
+    width:6px; height:6px;
+    background:var(--gold);
+    border-radius:50%;
+    display:inline-block;
+  }
+  .list-head .count{
+    font-size:12px;
+    color:var(--ink-soft);
+  }
+
+  table{
+    width:100%;
+    border-collapse: collapse;
+    font-size:13px;
+  }
+  thead th{
+    text-align:left;
+    font-weight:500;
+    font-size:11px;
+    color:var(--ink-soft);
+    border-bottom: 2px solid var(--rule-strong);
+    padding: 6px 6px;
+  }
+  thead th.num{ text-align:right; }
+  tbody td{
+    padding: 10px 6px;
+    border-bottom: 1px dashed var(--rule-strong);
+    vertical-align: middle;
+  }
+  tbody tr:last-child td{ border-bottom:none; }
+  tbody tr:hover{ background: rgba(169,129,46,0.05); }
+
+  .badge{
+    display:inline-block;
+    font-size:11px;
+    font-weight:700;
+    padding:2px 8px;
+    border-radius:999px;
+  }
+  .badge.income{ color:var(--income); background:var(--income-bg); }
+  .badge.expense{ color:var(--expense); background:var(--expense-bg); }
+  .badge.savings{ color:var(--savings); background:var(--savings-bg); }
+
+  .acc-chip{
+    display:block;
+    font-size:10.5px;
+    color:var(--ink-soft);
+    margin-top:3px;
+  }
+  .auto-tag{
+    display:inline-block;
+    font-size:9.5px;
+    color:var(--gold);
+    background:var(--gold-soft);
+    border-radius:5px;
+    padding:1px 4px;
+    margin-left:4px;
+    font-weight:700;
+    vertical-align:middle;
+  }
+
+  .amt{
+    text-align:right;
+    font-weight:800;
+    font-variant-numeric: tabular-nums;
+    white-space:nowrap;
+  }
+  .amt.income{ color:var(--income); }
+  .amt.expense{ color:var(--expense); }
+  .amt.savings{ color:var(--savings); }
+
+  .memo-cell{
+    color:var(--ink-soft);
+    font-size:12px;
+    max-width: 90px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .date-cell{ white-space:nowrap; color:var(--ink-soft); font-size:12px;}
+
+  .del-btn{
+    border:none;
+    background:none;
+    color:var(--ink-soft);
+    cursor:pointer;
+    font-size:16px;
+    line-height:1;
+    padding:4px 6px;
+    border-radius:6px;
+  }
+  .del-btn:hover{ background:var(--expense-bg); color:var(--expense); }
+
+  .empty-state{
+    text-align:center;
+    padding: 34px 10px 26px;
+    color:var(--ink-soft);
+  }
+  .empty-state .big{
+    font-size:15px;
+    color:var(--ink);
+    margin-bottom:4px;
+    font-weight:800;
+  }
+  .empty-state .small{ font-size:12.5px; }
+
+  .list-footer{
+    display:flex;
+    justify-content:flex-end;
+    padding: 10px 4px 4px;
+  }
+  .reset-btn{
+    border:none;
+    background:none;
+    color:var(--ink-soft);
+    font-size:11.5px;
+    cursor:pointer;
+    text-decoration:underline;
+    padding:4px;
+  }
+  .reset-btn:hover{ color:var(--expense); }
+
+  .loading{
+    text-align:center;
+    padding: 60px 0;
+    color:var(--ink-soft);
+    font-size:13px;
+  }
+
+  /* ---------- Management views shared (accounts / recurring) ---------- */
+  .mgmt-add-card{
+    background:var(--card);
+    border-radius:14px;
+    padding:18px;
+    box-shadow: var(--shadow);
+    margin-bottom: 18px;
+  }
+  .mgmt-add-card h2{
+    font-size:15px;
+    margin:0 0 12px;
+    font-weight:800;
+    display:flex; align-items:center; gap:6px;
+  }
+  .mgmt-add-card h2::before{
+    content:"";
+    width:6px; height:6px;
+    background:var(--gold);
+    border-radius:50%;
+    display:inline-block;
+  }
+  .acc-add-row{
+    display:flex;
+    gap:8px;
+  }
+  .acc-add-row input{
+    flex:1;
+    font-family:'Noto Sans KR', sans-serif;
+    padding:10px 12px;
+    border-radius:8px;
+    border:1.5px solid var(--rule-strong);
+    font-size:14px;
+    outline:none;
+  }
+  .acc-add-row input:focus{ border-color:var(--gold); }
+  .acc-add-row button{
+    border:none;
+    background:var(--ink);
+    color:var(--paper);
+    font-weight:800;
+    font-size:13.5px;
+    padding:0 18px;
+    border-radius:8px;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .acc-add-row button:hover{ opacity:0.85; }
+
+  .mgmt-list-card{
+    background:var(--card);
+    border-radius:14px;
+    padding:8px 18px 14px;
+    box-shadow: var(--shadow);
+  }
+  .mgmt-list-card h2{
+    font-size:15px;
+    margin:14px 0 10px;
+    font-weight:800;
+    display:flex; align-items:center; gap:6px;
+  }
+  .mgmt-list-card h2::before{
+    content:"";
+    width:6px; height:6px;
+    background:var(--gold);
+    border-radius:50%;
+    display:inline-block;
+  }
+  .mgmt-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding: 13px 4px;
+    border-bottom: 1px dashed var(--rule-strong);
+  }
+  .mgmt-row:last-child{ border-bottom:none; }
+  .mgmt-info{ min-width:0; }
+  .mgmt-info .nm{
+    font-weight:700;
+    font-size:14.5px;
+    margin-bottom:3px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    display:flex; align-items:center; gap:6px;
+  }
+  .mgmt-info .bal{
+    font-size:12px;
+    color:var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+    line-height:1.5;
+  }
+  .mgmt-info .bal.neg{ color:var(--expense); }
+  .mgmt-actions{
+    display:flex;
+    gap:2px;
+    flex-shrink:0;
+  }
+  .icon-btn{
+    border:none;
+    background:none;
+    cursor:pointer;
+    font-size:14.5px;
+    padding:6px 7px;
+    border-radius:7px;
+    color:var(--ink-soft);
+  }
+  .icon-btn:hover{ background:var(--gold-soft); color:var(--ink); }
+  .icon-btn.danger:hover{ background:var(--expense-bg); color:var(--expense); }
+
+  .rename-row{
+    display:flex;
+    gap:8px;
+    flex:1;
+  }
+  .rename-row input{
+    flex:1;
+    font-family:'Noto Sans KR', sans-serif;
+    padding:7px 10px;
+    border-radius:7px;
+    border:1.5px solid var(--gold);
+    font-size:14px;
+    outline:none;
+  }
+  .rename-row button{
+    border:none;
+    border-radius:7px;
+    font-size:12px;
+    font-weight:700;
+    padding:0 10px;
+    cursor:pointer;
+  }
+  .rename-row .save-btn{ background:var(--ink); color:var(--paper); }
+  .rename-row .cancel-btn{ background:none; color:var(--ink-soft); }
+
+  .paused-tag{
+    font-size:10px;
+    font-weight:700;
+    color:var(--ink-soft);
+    background:var(--rule);
+    border-radius:5px;
+    padding:1px 6px;
+  }
+
+  .edit-card{
+    background:#fff;
+    border:1.5px solid var(--gold);
+    border-radius:12px;
+    padding:14px;
+    margin:8px 0;
+  }
+  .edit-card .field-row{ margin-bottom:8px; }
+  .edit-card .type-toggle{ margin-bottom:10px; }
+  .edit-actions{
+    display:flex;
+    gap:8px;
+    margin-top:4px;
+  }
+  .edit-actions button{
+    flex:1;
+    border:none;
+    border-radius:8px;
+    padding:9px 0;
+    font-weight:700;
+    font-size:13px;
+    cursor:pointer;
+  }
+  .edit-actions .save-btn{ background:var(--ink); color:var(--paper); }
+  .edit-actions .cancel-btn{ background:var(--rule); color:var(--ink); }
+
+  @media (max-width: 480px){
+    .summary{ grid-template-columns: repeat(2, 1fr); }
+    .ov-grid{ grid-template-columns: repeat(3, 1fr); }
+    .field-row{ grid-template-columns: 1fr; }
+    .memo-cell{ max-width:60px; }
+    .header-row h1{ font-size:22px; }
+  }
+</style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+</head>
+<body>
+  <div class="wrap" id="app">
+    <div class="loading" id="loading">불러오는 중…</div>
+  </div>
+
+<script>
+(function(){
+  const app = document.getElementById('app');
+
+  const CATS = {
+    income: ['급여','부수입','용돈','상여금','기타수입'],
+    expense: ['식비','교통','주거/공과금','쇼핑','문화/여가','의료/건강','교육','통신','경조사','기타지출'],
+    savings: ['적금','예금','투자','비상금','기타저축']
+  };
+  const TYPE_LABEL = { income:'수입', expense:'지출', savings:'저축' };
+  const SEED_ACCOUNTS = ['토스뱅크','국민은행 체크카드통장','신한은행 통장','국민은행 적금'];
+  const UNASSIGNED_NAME = '미분류';
+  const ENTRIES_KEY = 'budget-entries';
+  const ACCOUNTS_KEY = 'budget-accounts';
+  const RECURRING_KEY = 'budget-recurring';
+
+  // ===== Firebase 설정: 아래에 firebaseConfig 값을 붙여넣으면 여러 기기 자동 동기화가 켜져요 =====
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyCTIdd6jdE0wqi7nEHjAauxk1gsX843at4",
+    authDomain: "mywalletflow-9fb2f.firebaseapp.com",
+    projectId: "mywalletflow-9fb2f",
+    storageBucket: "mywalletflow-9fb2f.firebasestorage.app",
+    messagingSenderId: "926589564383",
+    appId: "1:926589564383:web:be045fd7915b60958d006a"
+  };
+  function firebaseReady(){ return !!(FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.projectId); }
+
+  let fbApp = null, fbAuth = null, fbDb = null;
+  if(firebaseReady()){
+    try{
+      fbApp = firebase.initializeApp(FIREBASE_CONFIG);
+      fbAuth = firebase.auth();
+      fbDb = firebase.firestore();
+      fbDb.enablePersistence().catch(()=>{});
+    } catch(err){ console.error('Firebase 초기화 실패', err); }
+  }
+
+  let entries = [];
+  let accounts = []; // {id, name}
+  let recurringRules = []; // {id, name, type, category, accountId, amount, day, startDate, active, generatedThrough}
+  let view = 'home'; // 'home' | 'accounts' | 'recurring' | 'auth'
+  let viewYear, viewMonth;
+  let currentType = 'expense';
+  let selectedAccountId = 'all';
+  let renamingId = null;
+  let newRuleType = 'expense';
+  let editingRecurringId = null;
+  let editRuleType = 'expense';
+
+  let syncMode = false;          // true면 Firestore로 동기화 중
+  let currentUser = null;
+  let unsubscribeSnapshot = null;
+  let authMode = 'login';        // 'login' | 'signup'
+  let authError = '';
+  let authBusy = false;
+
+  const today = new Date();
+  const todayDate0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  viewYear = today.getFullYear();
+  viewMonth = today.getMonth();
+
+  function todayStr(){
+    const y = today.getFullYear();
+    const m = String(today.getMonth()+1).padStart(2,'0');
+    const d = String(today.getDate()).padStart(2,'0');
+    return `${y}-${m}-${d}`;
+  }
+  function fmtWon(n){ return '₩' + Number(n).toLocaleString('ko-KR'); }
+  function fmtSigned(n){ return (n < 0 ? '-' : '') + fmtWon(Math.abs(n)); }
+  function uid(prefix){ return prefix + Date.now() + Math.random().toString(36).slice(2,8); }
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, m => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[m]));
+  }
+  function daysInMonth(y, monthIndex){ return new Date(y, monthIndex+1, 0).getDate(); }
+  function monthKeyOf(dateStr){
+    const d = new Date(dateStr + 'T00:00:00');
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  }
+  function nextMonthKey(key){
+    let [y,m] = key.split('-').map(Number);
+    m++; if(m>12){ m=1; y++; }
+    return `${y}-${String(m).padStart(2,'0')}`;
+  }
+  function fmtDateObj(d){
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  /* ===================== STORAGE =====================
+     동기화 꺼짐: localStorage (이 브라우저에만 저장)
+     동기화 켜짐: Firestore (로그인한 계정 기준으로 모든 기기에 저장) */
+  async function loadAllLocal(){
+    try{
+      const raw = localStorage.getItem(ACCOUNTS_KEY);
+      accounts = raw ? JSON.parse(raw) : [];
+    } catch(err){ accounts = []; }
+
+    try{
+      const raw = localStorage.getItem(ENTRIES_KEY);
+      entries = raw ? JSON.parse(raw) : [];
+    } catch(err){ entries = []; }
+
+    try{
+      const raw = localStorage.getItem(RECURRING_KEY);
+      recurringRules = raw ? JSON.parse(raw) : [];
+    } catch(err){ recurringRules = []; }
+
+    await migrateIfNeeded();
+    await applyRecurringAll();
+  }
+
+  async function persistAll(){
+    if(syncMode && fbDb && currentUser){
+      try{
+        await fbDb.collection('budgets').doc(currentUser.uid).set({
+          accounts: JSON.stringify(accounts),
+          entries: JSON.stringify(entries),
+          recurringRules: JSON.stringify(recurringRules),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      } catch(err){ console.error('동기화 저장 실패', err); }
+    } else {
+      try{
+        localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+        localStorage.setItem(ENTRIES_KEY, JSON.stringify(entries));
+        localStorage.setItem(RECURRING_KEY, JSON.stringify(recurringRules));
+      } catch(err){ console.error('저장 실패', err); }
+    }
+  }
+
+  async function subscribeFirestore(){
+    const docRef = fbDb.collection('budgets').doc(currentUser.uid);
+    if(unsubscribeSnapshot){ unsubscribeSnapshot(); unsubscribeSnapshot = null; }
+    unsubscribeSnapshot = docRef.onSnapshot(async (snap) => {
+      const data = snap.data();
+      accounts = (data && data.accounts) ? JSON.parse(data.accounts) : [];
+      entries = (data && data.entries) ? JSON.parse(data.entries) : [];
+      recurringRules = (data && data.recurringRules) ? JSON.parse(data.recurringRules) : [];
+      await migrateIfNeeded();
+      await applyRecurringAll();
+      renderCurrentView();
+    }, (err) => {
+      console.error(err);
+      authError = '동기화 중 문제가 발생했어요: ' + err.message;
+      renderAuth();
+    });
+  }
+
+  function renderCurrentView(){
+    if(view === 'accounts') renderAccounts();
+    else if(view === 'recurring') renderRecurring();
+    else if(view === 'auth') renderAuth();
+    else renderHome();
+  }
+
+  function findAccountByName(name){ return accounts.find(a => a.name === name); }
+  function getAccount(id){ return accounts.find(a => a.id === id); }
+  function accountName(id){ const a = getAccount(id); return a ? a.name : UNASSIGNED_NAME; }
+  function ensureUnassigned(){
+    let u = accounts.find(a => a.name === UNASSIGNED_NAME);
+    if(!u){ u = { id: uid('a'), name: UNASSIGNED_NAME }; accounts.push(u); }
+    return u;
+  }
+
+  async function migrateIfNeeded(){
+    let changed = false;
+    if(accounts.length === 0 && entries.length > 0){
+      entries.forEach(e => {
+        if(!e.accountId && e.account){
+          let acc = findAccountByName(e.account);
+          if(!acc){ acc = { id: uid('a'), name: e.account }; accounts.push(acc); }
+          e.accountId = acc.id; delete e.account; changed = true;
+        }
+      });
+    }
+    if(accounts.length === 0){
+      accounts = SEED_ACCOUNTS.map(name => ({ id: uid('a'), name }));
+      changed = true;
+    }
+    entries.forEach(e => {
+      if(!e.accountId){
+        if(e.account){
+          let acc = findAccountByName(e.account);
+          if(!acc){ acc = { id: uid('a'), name: e.account }; accounts.push(acc); }
+          e.accountId = acc.id; delete e.account;
+        } else {
+          e.accountId = ensureUnassigned().id;
+        }
+        changed = true;
+      }
+    });
+    if(changed){ await saveAccounts(); await saveEntries(); }
+  }
+
+  async function saveEntries(){ await persistAll(); }
+  async function saveAccounts(){ await persistAll(); }
+  async function saveRecurring(){ await persistAll(); }
+
+  /* ===================== BACKUP: 내보내기 / 가져오기 ===================== */
+  function exportData(){
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      app: 'my-budget-tracker',
+      version: 1,
+      accounts, entries, recurringRules
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = todayStr();
+    a.href = url;
+    a.download = `가계부-백업-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function importDataFromFile(file){
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try{
+        const data = JSON.parse(e.target.result);
+        if(!data || !Array.isArray(data.accounts) || !Array.isArray(data.entries)){
+          alert('올바른 백업 파일이 아니에요.');
+          return;
+        }
+        if(!confirm('현재 데이터를 백업 파일 내용으로 덮어쓸까요? 이 작업은 되돌릴 수 없어요.')) return;
+        accounts = data.accounts || [];
+        entries = data.entries || [];
+        recurringRules = data.recurringRules || [];
+        await saveAccounts(); await saveEntries(); await saveRecurring();
+        await applyRecurringAll();
+        renderAccounts();
+        alert('데이터를 불러왔어요.');
+      } catch(err){
+        alert('파일을 읽는 데 실패했어요. JSON 백업 파일이 맞는지 확인해주세요.');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  /* ===================== RECURRING ENGINE ===================== */
+  async function applyRecurringAll(){
+    let changed = false;
+    recurringRules.forEach(rule => {
+      if(!rule.active) return;
+      if(!getAccount(rule.accountId)){ rule.accountId = ensureUnassigned().id; changed = true; }
+
+      let cursorKey = rule.generatedThrough ? nextMonthKey(rule.generatedThrough) : monthKeyOf(rule.startDate);
+      const startDateObj = new Date(rule.startDate + 'T00:00:00');
+      let safety = 0;
+      while(safety < 1200){
+        safety++;
+        const [y,m] = cursorKey.split('-').map(Number);
+        const monthIndex = m - 1;
+        const dim = daysInMonth(y, monthIndex);
+        const day = Math.min(rule.day, dim);
+        const occDate = new Date(y, monthIndex, day);
+        if(occDate > todayDate0) break;
+        if(occDate >= startDateObj){
+          entries.push({
+            id: uid('e'),
+            date: fmtDateObj(occDate),
+            type: rule.type,
+            accountId: rule.accountId,
+            category: rule.category,
+            amount: rule.amount,
+            memo: rule.name,
+            auto: true,
+            recurringId: rule.id
+          });
+          changed = true;
+        }
+        rule.generatedThrough = cursorKey;
+        cursorKey = nextMonthKey(cursorKey);
+      }
+    });
+    if(changed){ await saveEntries(); await saveRecurring(); }
+  }
+
+  function nextOccurrence(rule){
+    let cursorKey = rule.generatedThrough ? nextMonthKey(rule.generatedThrough) : monthKeyOf(rule.startDate);
+    const [y,m] = cursorKey.split('-').map(Number);
+    const monthIndex = m - 1;
+    const dim = daysInMonth(y, monthIndex);
+    const day = Math.min(rule.day, dim);
+    return new Date(y, monthIndex, day);
+  }
+
+  /* ===================== SHARED HELPERS ===================== */
+  function entriesForMonth(y, m){
+    return entries.filter(e => {
+      const d = new Date(e.date + 'T00:00:00');
+      return d.getFullYear() === y && d.getMonth() === m;
+    });
+  }
+  function sumByType(list, type){ return list.filter(e=>e.type===type).reduce((s,e)=>s+e.amount,0); }
+  function netOf(list){ return sumByType(list,'income') - sumByType(list,'expense') - sumByType(list,'savings'); }
+  function accountBalance(acc){
+    return (Number(acc.openingBalance)||0) + netOf(entries.filter(e => e.accountId === acc.id));
+  }
+  function totalOpeningBalance(){
+    return accounts.reduce((s,a) => s + (Number(a.openingBalance)||0), 0);
+  }
+
+  /* ===================== HOME VIEW ===================== */
+  function renderHome(){
+    let monthEntries = entriesForMonth(viewYear, viewMonth);
+    if(selectedAccountId !== 'all'){
+      monthEntries = monthEntries.filter(e => e.accountId === selectedAccountId);
+    }
+    monthEntries = monthEntries.slice().sort((a,b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+
+    const mIncome = sumByType(monthEntries, 'income');
+    const mExpense = sumByType(monthEntries, 'expense');
+    const mSavings = sumByType(monthEntries, 'savings');
+    const mBalance = mIncome - mExpense - mSavings;
+
+    const allIncome = sumByType(entries, 'income');
+    const allExpense = sumByType(entries, 'expense');
+    const allSavings = sumByType(entries, 'savings');
+    const allBalance = totalOpeningBalance() + allIncome - allExpense - allSavings;
+
+    const accountRows = accounts
+      .map(acc => ({ acc, net: accountBalance(acc) }))
+      .sort((a,b) => b.net - a.net)
+      .map(({acc, net}) => `
+        <div class="acc-row">
+          <span class="acc-name">${escapeHtml(acc.name)}</span>
+          <span class="acc-val ${net < 0 ? 'neg' : ''}">${fmtSigned(net)}</span>
+        </div>
+      `).join('');
+
+    // 다가오는 고정비 (30일 이내, 활성 규칙만)
+    const soon = new Date(todayDate0); soon.setDate(soon.getDate() + 30);
+    const upcoming = recurringRules
+      .filter(r => r.active)
+      .map(r => ({ r, occ: nextOccurrence(r) }))
+      .filter(({occ}) => occ >= todayDate0 && occ <= soon)
+      .sort((a,b) => a.occ - b.occ)
+      .slice(0, 5)
+      .map(({r, occ}) => `
+        <div class="upcoming-row">
+          <span class="u-left"><span class="u-date">${occ.getMonth()+1}/${occ.getDate()}</span>${escapeHtml(r.name)}</span>
+          <span class="u-amt">${TYPE_LABEL[r.type]==='지출'?'-':''}${fmtWon(r.amount)}</span>
+        </div>
+      `).join('');
+
+    const accTabsList = [{id:'all', name:'전체'}, ...accounts];
+    const accTabs = accTabsList.map(a => `
+      <button class="acc-tab ${selectedAccountId===a.id?'active':''}" data-acc="${a.id}">${escapeHtml(a.name)}</button>
+    `).join('');
+
+    const catOptions = CATS[currentType].map(c => `<option value="${c}">${c}</option>`).join('');
+    const accOptions = accounts.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
+
+    const rows = monthEntries.map(e => {
+      const sign = e.type === 'income' ? '+' : (e.type === 'expense' ? '-' : '');
+      return `
+      <tr data-id="${e.id}">
+        <td class="date-cell">${e.date.slice(5).replace('-', '.')}</td>
+        <td><span class="badge ${e.type}">${TYPE_LABEL[e.type]}</span></td>
+        <td>${escapeHtml(e.category)}${e.auto ? '<span class="auto-tag" title="고정비 자동 기록">고정</span>' : ''}<span class="acc-chip">${escapeHtml(accountName(e.accountId))}</span></td>
+        <td class="memo-cell" title="${escapeHtml(e.memo||'')}">${escapeHtml(e.memo||'')||'-'}</td>
+        <td class="amt ${e.type}">${sign}${fmtWon(e.amount)}</td>
+        <td><button class="del-btn" data-del="${e.id}" title="삭제">✕</button></td>
+      </tr>
+    `;}).join('');
+
+    const listBody = monthEntries.length ? `
+      <table>
+        <thead><tr><th>날짜</th><th>구분</th><th>카테고리</th><th>메모</th><th class="num">금액</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    ` : `
+      <div class="empty-state">
+        <div class="big">아직 기록이 없어요</div>
+        <div class="small">아래 입력칸에서 첫 내역을 추가해보세요.</div>
+      </div>
+    `;
+
+    const hasAccounts = accounts.length > 0;
+
+    app.innerHTML = `
+      <div class="header-row">
+        <div>
+          <h1>나의 가계부</h1>
+          <p>${viewYear}년 ${viewMonth+1}월 기준</p>
+        </div>
+        <div class="header-btns">
+          <button class="ghost-btn" id="manageRecBtn">🔁 고정비</button>
+          <button class="ghost-btn" id="manageAccBtn">⚙ 계좌 관리</button>
+          ${syncMode
+            ? `<button class="ghost-btn" id="logoutBtn">☁ ${escapeHtml(currentUser && currentUser.email ? currentUser.email : '')} · 로그아웃</button>`
+            : (firebaseReady() ? `<button class="ghost-btn" id="gotoLoginBtn">☁ 동기화 켜기</button>` : '')
+          }
+        </div>
+      </div>
+
+      <div class="overall">
+        <div class="ov-label">지금까지의 총 잔액</div>
+        <div class="ov-main">
+          <span class="num">${fmtSigned(allBalance)}</span>
+          <span class="cap">시작 잔액 + 수입 − 지출 − 저축</span>
+        </div>
+        <div class="ov-grid">
+          <div class="ov-item income"><div class="t">총 수입</div><div class="v">${fmtWon(allIncome)}</div></div>
+          <div class="ov-item expense"><div class="t">총 지출</div><div class="v">${fmtWon(allExpense)}</div></div>
+          <div class="ov-item savings"><div class="t">총 저축</div><div class="v">${fmtWon(allSavings)}</div></div>
+        </div>
+        ${upcoming ? `
+        <div class="upcoming">
+          <div class="t-row">
+            <span class="t">다가오는 고정비 (30일 이내)</span>
+            <button class="manage-link" id="toRecLink">관리 →</button>
+          </div>
+          ${upcoming}
+        </div>` : ''}
+        ${accountRows ? `
+        <div class="by-account">
+          <div class="t-row">
+            <span class="t">계좌별 잔액</span>
+            <button class="manage-link" id="toAccountsLink">계좌 관리 →</button>
+          </div>
+          ${accountRows}
+        </div>` : ''}
+      </div>
+
+      <div class="month-nav">
+        <button id="prevMonth" aria-label="이전 달">‹</button>
+        <div class="month-label">${viewYear}년 ${viewMonth+1}월</div>
+        <button id="nextMonth" aria-label="다음 달">›</button>
+      </div>
+
+      <div class="acc-tabs" id="accTabs">${accTabs}</div>
+
+      <div class="summary">
+        <div class="sum-card income"><div class="label">이번 달 수입</div><div class="value">${fmtWon(mIncome)}</div></div>
+        <div class="sum-card expense"><div class="label">이번 달 지출</div><div class="value">${fmtWon(mExpense)}</div></div>
+        <div class="sum-card savings"><div class="label">이번 달 저축</div><div class="value">${fmtWon(mSavings)}</div></div>
+        <div class="sum-card balance"><div class="label">남은 잔액</div><div class="value">${fmtSigned(mBalance)}</div></div>
+      </div>
+
+      <div class="form-card">
+        <h2>새 내역 추가</h2>
+        <div class="type-toggle">
+          <label class="expense-lbl ${currentType==='expense'?'active':''}"><input type="radio" name="type" value="expense" ${currentType==='expense'?'checked':''}/> 지출</label>
+          <label class="income-lbl ${currentType==='income'?'active':''}"><input type="radio" name="type" value="income" ${currentType==='income'?'checked':''}/> 수입</label>
+          <label class="savings-lbl ${currentType==='savings'?'active':''}"><input type="radio" name="type" value="savings" ${currentType==='savings'?'checked':''}/> 저축</label>
+        </div>
+        <div class="field-row">
+          <div class="field"><label for="f-date">날짜</label><input type="date" id="f-date" value="${todayStr()}" /></div>
+          <div class="field">
+            <label for="f-acc">계좌</label>
+            ${hasAccounts ? `<select id="f-acc">${accOptions}</select>` : `<div class="hint">등록된 계좌가 없어요. <button id="goAddAcc" type="button">계좌 추가하기</button></div>`}
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label for="f-cat">카테고리</label><select id="f-cat">${catOptions}</select></div>
+          <div class="field"><label for="f-amt">금액 (원)</label><input type="number" id="f-amt" placeholder="예: 15000" min="0" step="1" /></div>
+        </div>
+        <div class="field-row">
+          <div class="field full"><label for="f-memo">메모 (선택)</label><input type="text" id="f-memo" placeholder="예: 점심 식사" maxlength="40" /></div>
+        </div>
+        <button class="add-btn" id="addBtn" ${hasAccounts ? '' : 'disabled'}>+ 내역 추가하기</button>
+        <div class="form-msg" id="formMsg"></div>
+        <div class="hint" style="margin-top:8px;">매달 반복되는 지출/수입이라면 <button id="goAddRec" type="button">고정비로 등록</button>하면 자동으로 기록돼요.</div>
+      </div>
+
+      <div class="list-card">
+        <div class="list-head">
+          <h2>내역 보기</h2>
+          <span class="count">${monthEntries.length}건${selectedAccountId!=='all' ? ' · ' + escapeHtml(accountName(selectedAccountId)) : ''}</span>
+        </div>
+        ${listBody}
+        <div class="list-footer">
+          ${entries.length ? '<button class="reset-btn" id="resetBtn">전체 내역 초기화</button>' : ''}
+        </div>
+      </div>
+    `;
+
+    attachHomeEvents();
+  }
+
+  function attachHomeEvents(){
+    document.getElementById('prevMonth').onclick = () => { viewMonth--; if(viewMonth<0){viewMonth=11;viewYear--;} renderHome(); };
+    document.getElementById('nextMonth').onclick = () => { viewMonth++; if(viewMonth>11){viewMonth=0;viewYear++;} renderHome(); };
+    document.getElementById('manageAccBtn').onclick = () => { view='accounts'; renderAccounts(); };
+    document.getElementById('manageRecBtn').onclick = () => { view='recurring'; renderRecurring(); };
+    const logoutBtn = document.getElementById('logoutBtn');
+    if(logoutBtn) logoutBtn.onclick = async () => {
+      if(!confirm('로그아웃할까요? 이 기기에서는 로그인해야 다시 데이터를 볼 수 있어요.')) return;
+      if(unsubscribeSnapshot){ unsubscribeSnapshot(); unsubscribeSnapshot = null; }
+      await fbAuth.signOut();
+    };
+    const gotoLoginBtn = document.getElementById('gotoLoginBtn');
+    if(gotoLoginBtn) gotoLoginBtn.onclick = () => { view='auth'; authError=''; renderAuth(); };
+    const toAccLink = document.getElementById('toAccountsLink');
+    if(toAccLink) toAccLink.onclick = () => { view='accounts'; renderAccounts(); };
+    const toRecLink = document.getElementById('toRecLink');
+    if(toRecLink) toRecLink.onclick = () => { view='recurring'; renderRecurring(); };
+    const goAddAcc = document.getElementById('goAddAcc');
+    if(goAddAcc) goAddAcc.onclick = () => { view='accounts'; renderAccounts(); };
+    const goAddRec = document.getElementById('goAddRec');
+    if(goAddRec) goAddRec.onclick = () => { view='recurring'; renderRecurring(); };
+
+    document.querySelectorAll('input[name="type"]').forEach(r => {
+      r.addEventListener('change', (e) => { currentType = e.target.value; renderHome(); });
+    });
+    document.querySelectorAll('.acc-tab').forEach(btn => {
+      btn.addEventListener('click', (e) => { selectedAccountId = e.currentTarget.getAttribute('data-acc'); renderHome(); });
+    });
+
+    const addBtn = document.getElementById('addBtn');
+    if(addBtn) addBtn.onclick = handleAdd;
+
+    document.querySelectorAll('[data-del]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = e.currentTarget.getAttribute('data-del');
+        if(confirm('이 내역을 삭제할까요?')){
+          entries = entries.filter(en => en.id !== id);
+          saveEntries();
+          renderHome();
+        }
+      });
+    });
+
+    const resetBtn = document.getElementById('resetBtn');
+    if(resetBtn){
+      resetBtn.onclick = () => {
+        if(confirm('저장된 모든 내역을 삭제할까요? 계좌·고정비 설정은 유지됩니다. 이 작업은 되돌릴 수 없어요.')){
+          entries = [];
+          selectedAccountId = 'all';
+          recurringRules.forEach(r => r.generatedThrough = null);
+          saveEntries();
+          saveRecurring();
+          renderHome();
+        }
+      };
+    }
+  }
+
+  async function handleAdd(){
+    const dateEl = document.getElementById('f-date');
+    const accEl = document.getElementById('f-acc');
+    const catEl = document.getElementById('f-cat');
+    const amtEl = document.getElementById('f-amt');
+    const memoEl = document.getElementById('f-memo');
+    const msgEl = document.getElementById('formMsg');
+
+    const date = dateEl.value;
+    const accountId = accEl ? accEl.value : null;
+    const category = catEl.value;
+    const amount = parseFloat(amtEl.value);
+    const memo = memoEl.value.trim();
+
+    if(!date){ msgEl.textContent = '날짜를 입력해주세요.'; return; }
+    if(!accountId){ msgEl.textContent = '계좌를 먼저 추가해주세요.'; return; }
+    if(!amount || amount <= 0){ msgEl.textContent = '금액을 0보다 크게 입력해주세요.'; return; }
+
+    msgEl.textContent = '';
+    entries.push({ id: uid('e'), date, type: currentType, accountId, category, amount: Math.round(amount), memo });
+    await saveEntries();
+
+    const d = new Date(date + 'T00:00:00');
+    viewYear = d.getFullYear(); viewMonth = d.getMonth();
+    renderHome();
+  }
+
+  /* ===================== ACCOUNTS VIEW ===================== */
+  function renderAccounts(){
+    const rows = accounts.map(acc => {
+      const bal = accountBalance(acc);
+      const count = entries.filter(e => e.accountId === acc.id).length;
+      const opening = Number(acc.openingBalance) || 0;
+      if(renamingId === acc.id){
+        return `
+          <div class="edit-card" data-edit-card="${acc.id}">
+            <div class="field-row">
+              <div class="field full"><label>계좌명</label><input type="text" id="renameInput" value="${escapeHtml(acc.name)}" maxlength="30" /></div>
+            </div>
+            <div class="field-row">
+              <div class="field full"><label>시작 잔액 (오늘 기준 현재 잔액을 그대로 입력하세요)</label><input type="number" id="renameBalance" value="${opening}" step="1" /></div>
+            </div>
+            <div class="edit-actions">
+              <button class="save-btn" data-save="${acc.id}">저장</button>
+              <button class="cancel-btn" data-cancel="1">취소</button>
+            </div>
+          </div>
+        `;
+      }
+      return `
+        <div class="mgmt-row">
+          <div class="mgmt-info">
+            <div class="nm">${escapeHtml(acc.name)}</div>
+            <div class="bal ${bal<0?'neg':''}">현재 ${fmtSigned(bal)} · 내역 ${count}건${opening ? ` · 시작 잔액 ${fmtSigned(opening)}` : ''}</div>
+          </div>
+          <div class="mgmt-actions">
+            <button class="icon-btn" data-rename="${acc.id}" title="수정">✎</button>
+            <button class="icon-btn danger" data-delete="${acc.id}" title="삭제">🗑</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    app.innerHTML = `
+      <div class="header-row">
+        <div><h1>계좌 관리</h1><p>은행·통장·카드별로 나눠서 관리해보세요</p></div>
+        <button class="ghost-btn" id="backBtn">← 돌아가기</button>
+      </div>
+
+      <div class="mgmt-add-card">
+        <h2>새 계좌 추가</h2>
+        <div class="field-row">
+          <div class="field full"><label for="newAccName">계좌명</label><input type="text" id="newAccName" placeholder="예: 카카오뱅크 모임통장" maxlength="30" /></div>
+        </div>
+        <div class="field-row">
+          <div class="field full"><label for="newAccBalance">시작 잔액 (선택, 원 · 지금 이 계좌에 있는 실제 금액)</label><input type="number" id="newAccBalance" placeholder="예: 1500000" step="1" /></div>
+        </div>
+        <button class="add-btn" id="addAccBtn">+ 계좌 추가하기</button>
+      </div>
+
+      <div class="mgmt-list-card">
+        <h2>내 계좌 (${accounts.length})</h2>
+        ${rows || `<div class="empty-state"><div class="big">등록된 계좌가 없어요</div><div class="small">위에서 첫 계좌를 추가해보세요.</div></div>`}
+      </div>
+
+      <div class="mgmt-add-card" style="margin-top:18px;">
+        <h2>데이터 백업</h2>
+        <p style="font-size:12px; color:var(--ink-soft); margin:0 0 12px;">이 기기의 브라우저에만 저장돼요. 기기를 바꾸거나 브라우저를 바꿀 땐 아래에서 내보내고 가져오세요.</p>
+        <div class="edit-actions" style="margin-top:0;">
+          <button class="save-btn" id="exportBtn" type="button">⬇ 내보내기 (다운로드)</button>
+          <button class="cancel-btn" id="importBtn" type="button">⬆ 가져오기 (업로드)</button>
+        </div>
+        <input type="file" id="importFile" accept="application/json" style="display:none;" />
+      </div>
+    `;
+
+    document.getElementById('backBtn').onclick = () => { view='home'; renamingId=null; renderHome(); };
+    document.getElementById('addAccBtn').onclick = async () => {
+      const nameInput = document.getElementById('newAccName');
+      const balInput = document.getElementById('newAccBalance');
+      const name = nameInput.value.trim();
+      if(!name) return;
+      if(accounts.some(a => a.name === name)){ alert('이미 같은 이름의 계좌가 있어요.'); return; }
+      const openingBalance = balInput.value ? Math.round(parseFloat(balInput.value)) : 0;
+      accounts.push({ id: uid('a'), name, openingBalance });
+      await saveAccounts();
+      renderAccounts();
+    };
+    document.getElementById('newAccName').addEventListener('keydown', (e) => {
+      if(e.key === 'Enter') document.getElementById('addAccBtn').click();
+    });
+    document.querySelectorAll('[data-rename]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        renamingId = e.currentTarget.getAttribute('data-rename');
+        renderAccounts();
+        const inp = document.getElementById('renameInput');
+        if(inp){ inp.focus(); inp.select(); }
+      });
+    });
+    document.querySelectorAll('[data-save]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const id = e.currentTarget.getAttribute('data-save');
+        const inp = document.getElementById('renameInput');
+        const balInp = document.getElementById('renameBalance');
+        const newName = inp.value.trim();
+        if(!newName) return;
+        if(accounts.some(a => a.id !== id && a.name === newName)){ alert('이미 같은 이름의 계좌가 있어요.'); return; }
+        const acc = getAccount(id);
+        if(acc){
+          acc.name = newName;
+          acc.openingBalance = balInp.value ? Math.round(parseFloat(balInp.value)) : 0;
+        }
+        renamingId = null;
+        await saveAccounts();
+        renderAccounts();
+      });
+    });
+    document.querySelectorAll('[data-cancel]').forEach(btn => {
+      btn.addEventListener('click', () => { renamingId = null; renderAccounts(); });
+    });
+    document.getElementById('exportBtn').onclick = exportData;
+    document.getElementById('importBtn').onclick = () => document.getElementById('importFile').click();
+    document.getElementById('importFile').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if(file) importDataFromFile(file);
+      e.target.value = '';
+    });
+    document.querySelectorAll('[data-delete]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const id = e.currentTarget.getAttribute('data-delete');
+        const acc = getAccount(id);
+        if(!acc) return;
+        const linked = entries.filter(en => en.accountId === id).length;
+        const msg = linked > 0
+          ? `'${acc.name}' 계좌를 삭제할까요?\n연결된 내역 ${linked}건은 '미분류' 계좌로 옮겨집니다.`
+          : `'${acc.name}' 계좌를 삭제할까요?`;
+        if(!confirm(msg)) return;
+        if(linked > 0){
+          const unassigned = ensureUnassigned();
+          entries.forEach(en => { if(en.accountId === id) en.accountId = unassigned.id; });
+          await saveEntries();
+        }
+        accounts = accounts.filter(a => a.id !== id);
+        if(selectedAccountId === id) selectedAccountId = 'all';
+        await saveAccounts();
+        renderAccounts();
+      });
+    });
+  }
+
+  /* ===================== RECURRING VIEW ===================== */
+  function ruleInfoLine(rule){
+    const sign = rule.type === 'income' ? '+' : (rule.type === 'expense' ? '-' : '');
+    const next = rule.active ? nextOccurrence(rule) : null;
+    const nextStr = next ? ` · 다음 ${next.getMonth()+1}/${next.getDate()}` : '';
+    return `${rule.category} · 매월 ${rule.day}일 · ${escapeHtml(accountName(rule.accountId))} · ${sign}${fmtWon(rule.amount)}${nextStr}`;
+  }
+
+  function renderRecurring(){
+    const accOptions = accounts.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
+    const newCatOptions = CATS[newRuleType].map(c => `<option value="${c}">${c}</option>`).join('');
+
+    const rows = recurringRules.map(rule => {
+      if(editingRecurringId === rule.id){
+        const editCatOptions = CATS[editRuleType].map(c => `<option value="${c}" ${c===rule.category?'selected':''}>${c}</option>`).join('');
+        return `
+        <div class="edit-card" data-edit-card="${rule.id}">
+          <div class="type-toggle">
+            <label class="expense-lbl ${editRuleType==='expense'?'active':''}"><input type="radio" name="rec-type-edit" value="expense" ${editRuleType==='expense'?'checked':''}/> 지출</label>
+            <label class="income-lbl ${editRuleType==='income'?'active':''}"><input type="radio" name="rec-type-edit" value="income" ${editRuleType==='income'?'checked':''}/> 수입</label>
+            <label class="savings-lbl ${editRuleType==='savings'?'active':''}"><input type="radio" name="rec-type-edit" value="savings" ${editRuleType==='savings'?'checked':''}/> 저축</label>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>이름</label><input type="text" id="edit-name" value="${escapeHtml(rule.name)}" maxlength="30" /></div>
+            <div class="field"><label>계좌</label><select id="edit-acc">${accounts.map(a=>`<option value="${a.id}" ${a.id===rule.accountId?'selected':''}>${escapeHtml(a.name)}</option>`).join('')}</select></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>카테고리</label><select id="edit-cat">${editCatOptions}</select></div>
+            <div class="field"><label>금액(원)</label><input type="number" id="edit-amt" value="${rule.amount}" min="0" step="1" /></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>매월 며칠</label><input type="number" id="edit-day" value="${rule.day}" min="1" max="31" /></div>
+            <div class="field"><label>시작일</label><input type="date" id="edit-start" value="${rule.startDate}" /></div>
+          </div>
+          <div class="edit-actions">
+            <button class="save-btn" data-save-rule="${rule.id}">저장</button>
+            <button class="cancel-btn" data-cancel-rule="1">취소</button>
+          </div>
+        </div>
+        `;
+      }
+      return `
+        <div class="mgmt-row">
+          <div class="mgmt-info">
+            <div class="nm">
+              <span class="badge ${rule.type}">${TYPE_LABEL[rule.type]}</span>
+              ${escapeHtml(rule.name)}
+              ${rule.active ? '' : '<span class="paused-tag">일시중지</span>'}
+            </div>
+            <div class="bal">${ruleInfoLine(rule)}</div>
+          </div>
+          <div class="mgmt-actions">
+            <button class="icon-btn" data-toggle-rule="${rule.id}" title="${rule.active?'일시중지':'재개'}">${rule.active?'⏸':'▶'}</button>
+            <button class="icon-btn" data-edit-rule="${rule.id}" title="수정">✎</button>
+            <button class="icon-btn danger" data-del-rule="${rule.id}" title="삭제">🗑</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    app.innerHTML = `
+      <div class="header-row">
+        <div><h1>고정비 관리</h1><p>등록해두면 날짜가 되는 대로 자동으로 기록돼요</p></div>
+        <button class="ghost-btn" id="backBtn">← 돌아가기</button>
+      </div>
+
+      <div class="mgmt-add-card">
+        <h2>새 고정비 등록</h2>
+        <div class="type-toggle">
+          <label class="expense-lbl ${newRuleType==='expense'?'active':''}"><input type="radio" name="rec-type-new" value="expense" ${newRuleType==='expense'?'checked':''}/> 지출</label>
+          <label class="income-lbl ${newRuleType==='income'?'active':''}"><input type="radio" name="rec-type-new" value="income" ${newRuleType==='income'?'checked':''}/> 수입</label>
+          <label class="savings-lbl ${newRuleType==='savings'?'active':''}"><input type="radio" name="rec-type-new" value="savings" ${newRuleType==='savings'?'checked':''}/> 저축</label>
+        </div>
+        <div class="field-row">
+          <div class="field"><label for="new-name">이름</label><input type="text" id="new-name" placeholder="예: 월세, 넷플릭스, 적금" maxlength="30" /></div>
+          <div class="field"><label for="new-acc">계좌</label>
+            ${accounts.length ? `<select id="new-acc">${accOptions}</select>` : `<div class="hint">계좌를 먼저 추가해주세요.</div>`}
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label for="new-cat">카테고리</label><select id="new-cat">${newCatOptions}</select></div>
+          <div class="field"><label for="new-amt">금액(원)</label><input type="number" id="new-amt" placeholder="예: 550000" min="0" step="1" /></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label for="new-day">매월 며칠</label><input type="number" id="new-day" value="${today.getDate()}" min="1" max="31" /></div>
+          <div class="field"><label for="new-start">시작일</label><input type="date" id="new-start" value="${todayStr()}" /></div>
+        </div>
+        <button class="add-btn" id="addRuleBtn" ${accounts.length ? '' : 'disabled'}>+ 고정비 추가하기</button>
+        <div class="form-msg" id="ruleMsg"></div>
+      </div>
+
+      <div class="mgmt-list-card">
+        <h2>등록된 고정비 (${recurringRules.length})</h2>
+        ${rows || `<div class="empty-state"><div class="big">등록된 고정비가 없어요</div><div class="small">월세, 통신비, 구독료, 적금처럼 매달 반복되는 항목을 등록해보세요.</div></div>`}
+      </div>
+    `;
+
+    attachRecurringEvents();
+  }
+
+  function attachRecurringEvents(){
+    document.getElementById('backBtn').onclick = () => { view='home'; editingRecurringId=null; renderHome(); };
+
+    document.querySelectorAll('input[name="rec-type-new"]').forEach(r => {
+      r.addEventListener('change', (e) => { newRuleType = e.target.value; renderRecurring(); });
+    });
+    document.querySelectorAll('input[name="rec-type-edit"]').forEach(r => {
+      r.addEventListener('change', (e) => { editRuleType = e.target.value; renderRecurring(); });
+    });
+
+    const addRuleBtn = document.getElementById('addRuleBtn');
+    if(addRuleBtn){
+      addRuleBtn.onclick = async () => {
+        const name = document.getElementById('new-name').value.trim();
+        const accEl = document.getElementById('new-acc');
+        const accountId = accEl ? accEl.value : null;
+        const category = document.getElementById('new-cat').value;
+        const amount = parseFloat(document.getElementById('new-amt').value);
+        const day = parseInt(document.getElementById('new-day').value, 10);
+        const startDate = document.getElementById('new-start').value;
+        const msgEl = document.getElementById('ruleMsg');
+
+        if(!name){ msgEl.textContent = '이름을 입력해주세요.'; return; }
+        if(!accountId){ msgEl.textContent = '계좌를 선택해주세요.'; return; }
+        if(!amount || amount <= 0){ msgEl.textContent = '금액을 0보다 크게 입력해주세요.'; return; }
+        if(!day || day < 1 || day > 31){ msgEl.textContent = '매월 며칠인지 1~31 사이로 입력해주세요.'; return; }
+        if(!startDate){ msgEl.textContent = '시작일을 입력해주세요.'; return; }
+
+        msgEl.textContent = '';
+        recurringRules.push({
+          id: uid('r'), name, type: newRuleType, category, accountId,
+          amount: Math.round(amount), day, startDate,
+          active: true, generatedThrough: null
+        });
+        await saveRecurring();
+        await applyRecurringAll();
+        renderRecurring();
+      };
+    }
+
+    document.querySelectorAll('[data-toggle-rule]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const id = e.currentTarget.getAttribute('data-toggle-rule');
+        const rule = recurringRules.find(r => r.id === id);
+        if(!rule) return;
+        rule.active = !rule.active;
+        await saveRecurring();
+        if(rule.active) await applyRecurringAll();
+        renderRecurring();
+      });
+    });
+
+    document.querySelectorAll('[data-edit-rule]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = e.currentTarget.getAttribute('data-edit-rule');
+        const rule = recurringRules.find(r => r.id === id);
+        if(!rule) return;
+        editingRecurringId = id;
+        editRuleType = rule.type;
+        renderRecurring();
+      });
+    });
+    document.querySelectorAll('[data-cancel-rule]').forEach(btn => {
+      btn.addEventListener('click', () => { editingRecurringId = null; renderRecurring(); });
+    });
+    document.querySelectorAll('[data-save-rule]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const id = e.currentTarget.getAttribute('data-save-rule');
+        const rule = recurringRules.find(r => r.id === id);
+        if(!rule) return;
+        const name = document.getElementById('edit-name').value.trim();
+        const accountId = document.getElementById('edit-acc').value;
+        const category = document.getElementById('edit-cat').value;
+        const amount = parseFloat(document.getElementById('edit-amt').value);
+        const day = parseInt(document.getElementById('edit-day').value, 10);
+        const startDate = document.getElementById('edit-start').value;
+
+        if(!name || !accountId || !amount || amount<=0 || !day || day<1 || day>31 || !startDate){
+          alert('입력값을 다시 확인해주세요.');
+          return;
+        }
+        rule.name = name; rule.type = editRuleType; rule.accountId = accountId;
+        rule.category = category; rule.amount = Math.round(amount); rule.day = day; rule.startDate = startDate;
+        editingRecurringId = null;
+        await saveRecurring();
+        await applyRecurringAll();
+        renderRecurring();
+      });
+    });
+
+    document.querySelectorAll('[data-del-rule]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const id = e.currentTarget.getAttribute('data-del-rule');
+        const rule = recurringRules.find(r => r.id === id);
+        if(!rule) return;
+        if(!confirm(`'${rule.name}' 고정비를 삭제할까요?\n이미 기록된 내역은 그대로 남아있어요.`)) return;
+        recurringRules = recurringRules.filter(r => r.id !== id);
+        await saveRecurring();
+        renderRecurring();
+      });
+    });
+  }
+
+  /* ===================== AUTH VIEW ===================== */
+  function renderAuth(){
+    view = 'auth';
+    const isSignup = authMode === 'signup';
+    app.innerHTML = `
+      <div class="header-row">
+        <div><h1>나의 가계부</h1><p>로그인하면 핸드폰·컴퓨터에서 같은 데이터를 볼 수 있어요</p></div>
+      </div>
+      <div class="mgmt-add-card" style="max-width:380px; margin:30px auto 0;">
+        <h2>${isSignup ? '회원가입' : '로그인'}</h2>
+        <div class="field-row">
+          <div class="field full"><label for="auth-email">이메일</label><input type="email" id="auth-email" placeholder="you@example.com" autocomplete="username" /></div>
+        </div>
+        <div class="field-row">
+          <div class="field full"><label for="auth-pw">비밀번호</label><input type="password" id="auth-pw" placeholder="6자 이상" autocomplete="${isSignup?'new-password':'current-password'}" /></div>
+        </div>
+        <button class="add-btn" id="authSubmitBtn" ${authBusy ? 'disabled' : ''}>${authBusy ? '처리 중…' : (isSignup ? '회원가입하고 시작하기' : '로그인')}</button>
+        <div class="form-msg">${escapeHtml(authError)}</div>
+        <p style="text-align:center; font-size:12.5px; color:var(--ink-soft); margin-top:10px;">
+          ${isSignup ? '이미 계정이 있으신가요?' : '처음이신가요?'}
+          <button id="authToggleBtn" style="background:none;border:none;color:var(--gold);font-weight:700;cursor:pointer;text-decoration:underline;font-size:12.5px;">${isSignup ? '로그인' : '회원가입'}</button>
+        </p>
+        <p style="text-align:center; margin-top:14px; border-top:1px dashed var(--rule-strong); padding-top:12px;">
+          <button id="skipAuthBtn" style="background:none;border:none;color:var(--ink-soft);font-size:12px;cursor:pointer;text-decoration:underline;">동기화 없이 이 기기에서만 계속 쓰기</button>
+        </p>
+      </div>
+    `;
+
+    document.getElementById('authToggleBtn').onclick = () => {
+      authMode = isSignup ? 'login' : 'signup';
+      authError = '';
+      renderAuth();
+    };
+    document.getElementById('skipAuthBtn').onclick = async () => {
+      syncMode = false; currentUser = null;
+      await loadAllLocal();
+      view = 'home';
+      renderHome();
+    };
+    document.getElementById('authSubmitBtn').onclick = async () => {
+      const email = document.getElementById('auth-email').value.trim();
+      const pw = document.getElementById('auth-pw').value;
+      if(!email || !pw){ authError = '이메일과 비밀번호를 입력해주세요.'; renderAuth(); return; }
+      authBusy = true; authError = ''; renderAuth();
+      try{
+        if(isSignup){
+          await fbAuth.createUserWithEmailAndPassword(email, pw);
+        } else {
+          await fbAuth.signInWithEmailAndPassword(email, pw);
+        }
+        // 성공하면 onAuthStateChanged가 나머지를 처리함
+      } catch(err){
+        authBusy = false;
+        authError = friendlyAuthError(err);
+        renderAuth();
+      }
+    };
+  }
+
+  function friendlyAuthError(err){
+    switch(err.code){
+      case 'auth/email-already-in-use': return '이미 가입된 이메일이에요. 로그인해주세요.';
+      case 'auth/invalid-email': return '이메일 형식이 올바르지 않아요.';
+      case 'auth/weak-password': return '비밀번호는 6자 이상이어야 해요.';
+      case 'auth/user-not-found':
+      case 'auth/wrong-password':
+      case 'auth/invalid-credential': return '이메일 또는 비밀번호가 올바르지 않아요.';
+      default: return '오류가 발생했어요: ' + err.message;
+    }
+  }
+
+  (async function init(){
+    if(firebaseReady()){
+      fbAuth.onAuthStateChanged(async (user) => {
+        if(unsubscribeSnapshot){ unsubscribeSnapshot(); unsubscribeSnapshot = null; }
+        if(user){
+          currentUser = user;
+          syncMode = true;
+          authBusy = false;
+          try{
+            const docRef = fbDb.collection('budgets').doc(user.uid);
+            const snap = await docRef.get();
+            if(!snap.exists){
+              // 이 계정으로는 첫 로그인: 이 기기에 있던 데이터를 클라우드로 올려줌
+              await loadAllLocal();
+              await persistAll();
+            }
+          } catch(err){ console.error(err); }
+          await subscribeFirestore();
+        } else {
+          currentUser = null;
+          syncMode = false;
+          renderAuth();
+        }
+      });
+    } else {
+      syncMode = false;
+      await loadAllLocal();
+      renderHome();
+    }
+  })();
+})();
+</script>
+</body>
+</html>
