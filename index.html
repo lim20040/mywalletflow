@@ -351,6 +351,9 @@
   .type-toggle label.savings-lbl.active{
     background:var(--savings-bg); color:var(--savings); border-color:var(--savings);
   }
+  .type-toggle label.transfer-lbl.active{
+    background:var(--gold-soft); color:var(--gold); border-color:var(--gold);
+  }
 
   .field-row{
     display:grid;
@@ -480,6 +483,7 @@
   .badge.income{ color:var(--income); background:var(--income-bg); }
   .badge.expense{ color:var(--expense); background:var(--expense-bg); }
   .badge.savings{ color:var(--savings); background:var(--savings-bg); }
+  .badge.transfer{ color:var(--gold); background:var(--gold-soft); }
 
   .acc-chip{
     display:block;
@@ -508,6 +512,7 @@
   .amt.income{ color:var(--income); }
   .amt.expense{ color:var(--expense); }
   .amt.savings{ color:var(--savings); }
+  .amt.transfer{ color:var(--gold); }
 
   .memo-cell{
     color:var(--ink-soft);
@@ -761,7 +766,7 @@
     expense: ['식비','교통','주거/공과금','쇼핑','문화/여가','의료/건강','교육','통신','경조사','기타지출'],
     savings: ['적금','예금','투자','비상금','기타저축']
   };
-  const TYPE_LABEL = { income:'수입', expense:'지출', savings:'저축' };
+  const TYPE_LABEL = { income:'수입', expense:'지출', savings:'저축', transfer:'이체' };
   const SEED_ACCOUNTS = ['토스뱅크','국민은행 체크카드통장','신한은행 통장','국민은행 적금'];
   const UNASSIGNED_NAME = '미분류';
   const ENTRIES_KEY = 'budget-entries';
@@ -996,7 +1001,12 @@
     let changed = false;
     recurringRules.forEach(rule => {
       if(!rule.active) return;
-      if(!getAccount(rule.accountId)){ rule.accountId = ensureUnassigned().id; changed = true; }
+
+      if(rule.type === 'transfer'){
+        if(!getAccount(rule.fromAccountId) || !getAccount(rule.toAccountId)) return; // 계좌가 삭제됐으면 건너뜀
+      } else if(!getAccount(rule.accountId)){
+        rule.accountId = ensureUnassigned().id; changed = true;
+      }
 
       let cursorKey = rule.generatedThrough ? nextMonthKey(rule.generatedThrough) : monthKeyOf(rule.startDate);
       const startDateObj = new Date(rule.startDate + 'T00:00:00');
@@ -1010,17 +1020,25 @@
         const occDate = new Date(y, monthIndex, day);
         if(occDate > todayDate0) break;
         if(occDate >= startDateObj){
-          entries.push({
-            id: uid('e'),
-            date: fmtDateObj(occDate),
-            type: rule.type,
-            accountId: rule.accountId,
-            category: rule.category,
-            amount: rule.amount,
-            memo: rule.name,
-            auto: true,
-            recurringId: rule.id
-          });
+          if(rule.type === 'transfer'){
+            entries.push({
+              id: uid('e'), date: fmtDateObj(occDate), type: 'transfer',
+              fromAccountId: rule.fromAccountId, toAccountId: rule.toAccountId,
+              amount: rule.amount, memo: rule.name, auto: true, recurringId: rule.id
+            });
+          } else {
+            entries.push({
+              id: uid('e'),
+              date: fmtDateObj(occDate),
+              type: rule.type,
+              accountId: rule.accountId,
+              category: rule.category,
+              amount: rule.amount,
+              memo: rule.name,
+              auto: true,
+              recurringId: rule.id
+            });
+          }
           changed = true;
         }
         rule.generatedThrough = cursorKey;
@@ -1049,7 +1067,14 @@
   function sumByType(list, type){ return list.filter(e=>e.type===type).reduce((s,e)=>s+e.amount,0); }
   function netOf(list){ return sumByType(list,'income') - sumByType(list,'expense') - sumByType(list,'savings'); }
   function accountBalance(acc){
-    return (Number(acc.openingBalance)||0) + netOf(entries.filter(e => e.accountId === acc.id));
+    let bal = Number(acc.openingBalance) || 0;
+    bal += netOf(entries.filter(e => e.accountId === acc.id));
+    entries.forEach(e => {
+      if(e.type !== 'transfer') return;
+      if(e.fromAccountId === acc.id) bal -= e.amount;
+      if(e.toAccountId === acc.id) bal += e.amount;
+    });
+    return bal;
   }
   function totalOpeningBalance(){
     return accounts.reduce((s,a) => s + (Number(a.openingBalance)||0), 0);
@@ -1059,7 +1084,9 @@
   function renderHome(){
     let monthEntries = entriesForMonth(viewYear, viewMonth);
     if(selectedAccountId !== 'all'){
-      monthEntries = monthEntries.filter(e => e.accountId === selectedAccountId);
+      monthEntries = monthEntries.filter(e => e.type === 'transfer'
+        ? (e.fromAccountId === selectedAccountId || e.toAccountId === selectedAccountId)
+        : e.accountId === selectedAccountId);
     }
     monthEntries = monthEntries.slice().sort((a,b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
 
@@ -1094,7 +1121,7 @@
       .map(({r, occ}) => `
         <div class="upcoming-row">
           <span class="u-left"><span class="u-date">${occ.getMonth()+1}/${occ.getDate()}</span>${escapeHtml(r.name)}</span>
-          <span class="u-amt">${TYPE_LABEL[r.type]==='지출'?'-':''}${fmtWon(r.amount)}</span>
+          <span class="u-amt">${r.type==='expense'?'-':''}${fmtWon(r.amount)}</span>
         </div>
       `).join('');
 
@@ -1103,10 +1130,22 @@
       <button class="acc-tab ${selectedAccountId===a.id?'active':''}" data-acc="${a.id}">${escapeHtml(a.name)}</button>
     `).join('');
 
-    const catOptions = CATS[currentType].map(c => `<option value="${c}">${c}</option>`).join('');
+    const catOptions = (CATS[currentType] || []).map(c => `<option value="${c}">${c}</option>`).join('');
     const accOptions = accounts.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
 
     const rows = monthEntries.map(e => {
+      if(e.type === 'transfer'){
+        return `
+        <tr data-id="${e.id}">
+          <td class="date-cell">${e.date.slice(5).replace('-', '.')}</td>
+          <td><span class="badge transfer">이체</span></td>
+          <td>${escapeHtml(accountName(e.fromAccountId))} → ${escapeHtml(accountName(e.toAccountId))}${e.auto ? '<span class="auto-tag" title="고정비 자동 기록">고정</span>' : ''}</td>
+          <td class="memo-cell" title="${escapeHtml(e.memo||'')}">${escapeHtml(e.memo||'')||'-'}</td>
+          <td class="amt transfer">${fmtWon(e.amount)}</td>
+          <td><button class="del-btn" data-del="${e.id}" title="삭제">✕</button></td>
+        </tr>
+      `;
+      }
       const sign = e.type === 'income' ? '+' : (e.type === 'expense' ? '-' : '');
       return `
       <tr data-id="${e.id}">
@@ -1196,7 +1235,27 @@
           <label class="expense-lbl ${currentType==='expense'?'active':''}"><input type="radio" name="type" value="expense" ${currentType==='expense'?'checked':''}/> 지출</label>
           <label class="income-lbl ${currentType==='income'?'active':''}"><input type="radio" name="type" value="income" ${currentType==='income'?'checked':''}/> 수입</label>
           <label class="savings-lbl ${currentType==='savings'?'active':''}"><input type="radio" name="type" value="savings" ${currentType==='savings'?'checked':''}/> 저축</label>
+          <label class="transfer-lbl ${currentType==='transfer'?'active':''}"><input type="radio" name="type" value="transfer" ${currentType==='transfer'?'checked':''}/> 이체</label>
         </div>
+        ${currentType === 'transfer' ? `
+        <div class="field-row">
+          <div class="field"><label for="f-date">날짜</label><input type="date" id="f-date" value="${todayStr()}" /></div>
+          <div class="field"><label for="f-amt">금액 (원)</label><input type="number" id="f-amt" placeholder="예: 500000" min="0" step="1" /></div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="f-from-acc">보내는 계좌</label>
+            ${hasAccounts ? `<select id="f-from-acc">${accOptions}</select>` : `<div class="hint">등록된 계좌가 없어요. <button id="goAddAcc" type="button">계좌 추가하기</button></div>`}
+          </div>
+          <div class="field">
+            <label for="f-to-acc">받는 계좌</label>
+            ${hasAccounts ? `<select id="f-to-acc">${accOptions}</select>` : ''}
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field full"><label for="f-memo">메모 (선택)</label><input type="text" id="f-memo" placeholder="예: 고정비통장으로 이체" maxlength="40" /></div>
+        </div>
+        ` : `
         <div class="field-row">
           <div class="field"><label for="f-date">날짜</label><input type="date" id="f-date" value="${todayStr()}" /></div>
           <div class="field">
@@ -1211,9 +1270,10 @@
         <div class="field-row">
           <div class="field full"><label for="f-memo">메모 (선택)</label><input type="text" id="f-memo" placeholder="예: 점심 식사" maxlength="40" /></div>
         </div>
+        `}
         <button class="add-btn" id="addBtn" ${hasAccounts ? '' : 'disabled'}>+ 내역 추가하기</button>
         <div class="form-msg" id="formMsg"></div>
-        <div class="hint" style="margin-top:8px;">매달 반복되는 지출/수입이라면 <button id="goAddRec" type="button">고정비로 등록</button>하면 자동으로 기록돼요.</div>
+        <div class="hint" style="margin-top:8px;">매달 반복되는 지출/수입/이체라면 <button id="goAddRec" type="button">고정비로 등록</button>하면 자동으로 기록돼요.</div>
       </div>
 
       <div class="list-card">
@@ -1283,24 +1343,36 @@
 
   async function handleAdd(){
     const dateEl = document.getElementById('f-date');
-    const accEl = document.getElementById('f-acc');
-    const catEl = document.getElementById('f-cat');
     const amtEl = document.getElementById('f-amt');
     const memoEl = document.getElementById('f-memo');
     const msgEl = document.getElementById('formMsg');
 
     const date = dateEl.value;
-    const accountId = accEl ? accEl.value : null;
-    const category = catEl.value;
     const amount = parseFloat(amtEl.value);
     const memo = memoEl.value.trim();
 
     if(!date){ msgEl.textContent = '날짜를 입력해주세요.'; return; }
-    if(!accountId){ msgEl.textContent = '계좌를 먼저 추가해주세요.'; return; }
     if(!amount || amount <= 0){ msgEl.textContent = '금액을 0보다 크게 입력해주세요.'; return; }
 
-    msgEl.textContent = '';
-    entries.push({ id: uid('e'), date, type: currentType, accountId, category, amount: Math.round(amount), memo });
+    if(currentType === 'transfer'){
+      const fromEl = document.getElementById('f-from-acc');
+      const toEl = document.getElementById('f-to-acc');
+      const fromAccountId = fromEl ? fromEl.value : null;
+      const toAccountId = toEl ? toEl.value : null;
+      if(!fromAccountId || !toAccountId){ msgEl.textContent = '계좌를 먼저 추가해주세요.'; return; }
+      if(fromAccountId === toAccountId){ msgEl.textContent = '보내는 계좌와 받는 계좌가 같아요. 다르게 선택해주세요.'; return; }
+      msgEl.textContent = '';
+      entries.push({ id: uid('e'), date, type: 'transfer', fromAccountId, toAccountId, amount: Math.round(amount), memo });
+    } else {
+      const accEl = document.getElementById('f-acc');
+      const catEl = document.getElementById('f-cat');
+      const accountId = accEl ? accEl.value : null;
+      const category = catEl.value;
+      if(!accountId){ msgEl.textContent = '계좌를 먼저 추가해주세요.'; return; }
+      msgEl.textContent = '';
+      entries.push({ id: uid('e'), date, type: currentType, accountId, category, amount: Math.round(amount), memo });
+    }
+
     await saveEntries();
 
     const d = new Date(date + 'T00:00:00');
@@ -1312,7 +1384,7 @@
   function renderAccounts(){
     const rows = accounts.map(acc => {
       const bal = accountBalance(acc);
-      const count = entries.filter(e => e.accountId === acc.id).length;
+      const count = entries.filter(e => e.accountId === acc.id || e.fromAccountId === acc.id || e.toAccountId === acc.id).length;
       const opening = Number(acc.openingBalance) || 0;
       if(renamingId === acc.id){
         return `
@@ -1433,14 +1505,18 @@
         const id = e.currentTarget.getAttribute('data-delete');
         const acc = getAccount(id);
         if(!acc) return;
-        const linked = entries.filter(en => en.accountId === id).length;
+        const linked = entries.filter(en => en.accountId === id || en.fromAccountId === id || en.toAccountId === id).length;
         const msg = linked > 0
           ? `'${acc.name}' 계좌를 삭제할까요?\n연결된 내역 ${linked}건은 '미분류' 계좌로 옮겨집니다.`
           : `'${acc.name}' 계좌를 삭제할까요?`;
         if(!confirm(msg)) return;
         if(linked > 0){
           const unassigned = ensureUnassigned();
-          entries.forEach(en => { if(en.accountId === id) en.accountId = unassigned.id; });
+          entries.forEach(en => {
+            if(en.accountId === id) en.accountId = unassigned.id;
+            if(en.fromAccountId === id) en.fromAccountId = unassigned.id;
+            if(en.toAccountId === id) en.toAccountId = unassigned.id;
+          });
           await saveEntries();
         }
         accounts = accounts.filter(a => a.id !== id);
@@ -1453,37 +1529,51 @@
 
   /* ===================== RECURRING VIEW ===================== */
   function ruleInfoLine(rule){
-    const sign = rule.type === 'income' ? '+' : (rule.type === 'expense' ? '-' : '');
     const next = rule.active ? nextOccurrence(rule) : null;
     const nextStr = next ? ` · 다음 ${next.getMonth()+1}/${next.getDate()}` : '';
+    if(rule.type === 'transfer'){
+      return `${escapeHtml(accountName(rule.fromAccountId))} → ${escapeHtml(accountName(rule.toAccountId))} · 매월 ${rule.day}일 · ${fmtWon(rule.amount)}${nextStr}`;
+    }
+    const sign = rule.type === 'income' ? '+' : (rule.type === 'expense' ? '-' : '');
     return `${rule.category} · 매월 ${rule.day}일 · ${escapeHtml(accountName(rule.accountId))} · ${sign}${fmtWon(rule.amount)}${nextStr}`;
   }
 
   function renderRecurring(){
     const accOptions = accounts.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
-    const newCatOptions = CATS[newRuleType].map(c => `<option value="${c}">${c}</option>`).join('');
+    const newCatOptions = (CATS[newRuleType] || []).map(c => `<option value="${c}">${c}</option>`).join('');
 
     const rows = recurringRules.map(rule => {
       if(editingRecurringId === rule.id){
-        const editCatOptions = CATS[editRuleType].map(c => `<option value="${c}" ${c===rule.category?'selected':''}>${c}</option>`).join('');
+        const editCatOptions = (CATS[editRuleType] || []).map(c => `<option value="${c}" ${c===rule.category?'selected':''}>${c}</option>`).join('');
+        const isEditTransfer = editRuleType === 'transfer';
         return `
         <div class="edit-card" data-edit-card="${rule.id}">
           <div class="type-toggle">
             <label class="expense-lbl ${editRuleType==='expense'?'active':''}"><input type="radio" name="rec-type-edit" value="expense" ${editRuleType==='expense'?'checked':''}/> 지출</label>
             <label class="income-lbl ${editRuleType==='income'?'active':''}"><input type="radio" name="rec-type-edit" value="income" ${editRuleType==='income'?'checked':''}/> 수입</label>
             <label class="savings-lbl ${editRuleType==='savings'?'active':''}"><input type="radio" name="rec-type-edit" value="savings" ${editRuleType==='savings'?'checked':''}/> 저축</label>
+            <label class="transfer-lbl ${editRuleType==='transfer'?'active':''}"><input type="radio" name="rec-type-edit" value="transfer" ${editRuleType==='transfer'?'checked':''}/> 이체</label>
           </div>
           <div class="field-row">
-            <div class="field"><label>이름</label><input type="text" id="edit-name" value="${escapeHtml(rule.name)}" maxlength="30" /></div>
+            <div class="field full"><label>이름</label><input type="text" id="edit-name" value="${escapeHtml(rule.name)}" maxlength="30" /></div>
+          </div>
+          ${isEditTransfer ? `
+          <div class="field-row">
+            <div class="field"><label>보내는 계좌</label><select id="edit-from-acc">${accounts.map(a=>`<option value="${a.id}" ${a.id===rule.fromAccountId?'selected':''}>${escapeHtml(a.name)}</option>`).join('')}</select></div>
+            <div class="field"><label>받는 계좌</label><select id="edit-to-acc">${accounts.map(a=>`<option value="${a.id}" ${a.id===rule.toAccountId?'selected':''}>${escapeHtml(a.name)}</option>`).join('')}</select></div>
+          </div>
+          ` : `
+          <div class="field-row">
             <div class="field"><label>계좌</label><select id="edit-acc">${accounts.map(a=>`<option value="${a.id}" ${a.id===rule.accountId?'selected':''}>${escapeHtml(a.name)}</option>`).join('')}</select></div>
-          </div>
-          <div class="field-row">
             <div class="field"><label>카테고리</label><select id="edit-cat">${editCatOptions}</select></div>
+          </div>
+          `}
+          <div class="field-row">
             <div class="field"><label>금액(원)</label><input type="number" id="edit-amt" value="${rule.amount}" min="0" step="1" /></div>
+            <div class="field"><label>매월 며칠</label><input type="number" id="edit-day" value="${rule.day}" min="1" max="31" /></div>
           </div>
           <div class="field-row">
-            <div class="field"><label>매월 며칠</label><input type="number" id="edit-day" value="${rule.day}" min="1" max="31" /></div>
-            <div class="field"><label>시작일</label><input type="date" id="edit-start" value="${rule.startDate}" /></div>
+            <div class="field full"><label>시작일</label><input type="date" id="edit-start" value="${rule.startDate}" /></div>
           </div>
           <div class="edit-actions">
             <button class="save-btn" data-save-rule="${rule.id}">저장</button>
@@ -1511,6 +1601,8 @@
       `;
     }).join('');
 
+    const isNewTransfer = newRuleType === 'transfer';
+
     app.innerHTML = `
       <div class="header-row">
         <div><h1>고정비 관리</h1><p>등록해두면 날짜가 되는 대로 자동으로 기록돼요</p></div>
@@ -1523,20 +1615,34 @@
           <label class="expense-lbl ${newRuleType==='expense'?'active':''}"><input type="radio" name="rec-type-new" value="expense" ${newRuleType==='expense'?'checked':''}/> 지출</label>
           <label class="income-lbl ${newRuleType==='income'?'active':''}"><input type="radio" name="rec-type-new" value="income" ${newRuleType==='income'?'checked':''}/> 수입</label>
           <label class="savings-lbl ${newRuleType==='savings'?'active':''}"><input type="radio" name="rec-type-new" value="savings" ${newRuleType==='savings'?'checked':''}/> 저축</label>
+          <label class="transfer-lbl ${newRuleType==='transfer'?'active':''}"><input type="radio" name="rec-type-new" value="transfer" ${newRuleType==='transfer'?'checked':''}/> 이체</label>
         </div>
         <div class="field-row">
-          <div class="field"><label for="new-name">이름</label><input type="text" id="new-name" placeholder="예: 월세, 넷플릭스, 적금" maxlength="30" /></div>
+          <div class="field full"><label for="new-name">이름</label><input type="text" id="new-name" placeholder="${isNewTransfer ? '예: 고정비통장으로 이체' : '예: 월세, 넷플릭스, 적금'}" maxlength="30" /></div>
+        </div>
+        ${isNewTransfer ? `
+        <div class="field-row">
+          <div class="field"><label for="new-from-acc">보내는 계좌</label>
+            ${accounts.length ? `<select id="new-from-acc">${accOptions}</select>` : `<div class="hint">계좌를 먼저 추가해주세요.</div>`}
+          </div>
+          <div class="field"><label for="new-to-acc">받는 계좌</label>
+            ${accounts.length ? `<select id="new-to-acc">${accOptions}</select>` : ''}
+          </div>
+        </div>
+        ` : `
+        <div class="field-row">
           <div class="field"><label for="new-acc">계좌</label>
             ${accounts.length ? `<select id="new-acc">${accOptions}</select>` : `<div class="hint">계좌를 먼저 추가해주세요.</div>`}
           </div>
-        </div>
-        <div class="field-row">
           <div class="field"><label for="new-cat">카테고리</label><select id="new-cat">${newCatOptions}</select></div>
+        </div>
+        `}
+        <div class="field-row">
           <div class="field"><label for="new-amt">금액(원)</label><input type="number" id="new-amt" placeholder="예: 550000" min="0" step="1" /></div>
+          <div class="field"><label for="new-day">매월 며칠</label><input type="number" id="new-day" value="${today.getDate()}" min="1" max="31" /></div>
         </div>
         <div class="field-row">
-          <div class="field"><label for="new-day">매월 며칠</label><input type="number" id="new-day" value="${today.getDate()}" min="1" max="31" /></div>
-          <div class="field"><label for="new-start">시작일</label><input type="date" id="new-start" value="${todayStr()}" /></div>
+          <div class="field full"><label for="new-start">시작일</label><input type="date" id="new-start" value="${todayStr()}" /></div>
         </div>
         <button class="add-btn" id="addRuleBtn" ${accounts.length ? '' : 'disabled'}>+ 고정비 추가하기</button>
         <div class="form-msg" id="ruleMsg"></div>
@@ -1544,7 +1650,7 @@
 
       <div class="mgmt-list-card">
         <h2>등록된 고정비 (${recurringRules.length})</h2>
-        ${rows || `<div class="empty-state"><div class="big">등록된 고정비가 없어요</div><div class="small">월세, 통신비, 구독료, 적금처럼 매달 반복되는 항목을 등록해보세요.</div></div>`}
+        ${rows || `<div class="empty-state"><div class="big">등록된 고정비가 없어요</div><div class="small">월세, 통신비, 구독료, 적금, 계좌 이체처럼 매달 반복되는 항목을 등록해보세요.</div></div>`}
       </div>
     `;
 
@@ -1565,26 +1671,41 @@
     if(addRuleBtn){
       addRuleBtn.onclick = async () => {
         const name = document.getElementById('new-name').value.trim();
-        const accEl = document.getElementById('new-acc');
-        const accountId = accEl ? accEl.value : null;
-        const category = document.getElementById('new-cat').value;
         const amount = parseFloat(document.getElementById('new-amt').value);
         const day = parseInt(document.getElementById('new-day').value, 10);
         const startDate = document.getElementById('new-start').value;
         const msgEl = document.getElementById('ruleMsg');
 
         if(!name){ msgEl.textContent = '이름을 입력해주세요.'; return; }
-        if(!accountId){ msgEl.textContent = '계좌를 선택해주세요.'; return; }
         if(!amount || amount <= 0){ msgEl.textContent = '금액을 0보다 크게 입력해주세요.'; return; }
         if(!day || day < 1 || day > 31){ msgEl.textContent = '매월 며칠인지 1~31 사이로 입력해주세요.'; return; }
         if(!startDate){ msgEl.textContent = '시작일을 입력해주세요.'; return; }
 
-        msgEl.textContent = '';
-        recurringRules.push({
-          id: uid('r'), name, type: newRuleType, category, accountId,
-          amount: Math.round(amount), day, startDate,
-          active: true, generatedThrough: null
-        });
+        if(newRuleType === 'transfer'){
+          const fromEl = document.getElementById('new-from-acc');
+          const toEl = document.getElementById('new-to-acc');
+          const fromAccountId = fromEl ? fromEl.value : null;
+          const toAccountId = toEl ? toEl.value : null;
+          if(!fromAccountId || !toAccountId){ msgEl.textContent = '계좌를 선택해주세요.'; return; }
+          if(fromAccountId === toAccountId){ msgEl.textContent = '보내는 계좌와 받는 계좌가 같아요.'; return; }
+          msgEl.textContent = '';
+          recurringRules.push({
+            id: uid('r'), name, type: 'transfer', fromAccountId, toAccountId,
+            amount: Math.round(amount), day, startDate,
+            active: true, generatedThrough: null
+          });
+        } else {
+          const accEl = document.getElementById('new-acc');
+          const accountId = accEl ? accEl.value : null;
+          const category = document.getElementById('new-cat').value;
+          if(!accountId){ msgEl.textContent = '계좌를 선택해주세요.'; return; }
+          msgEl.textContent = '';
+          recurringRules.push({
+            id: uid('r'), name, type: newRuleType, category, accountId,
+            amount: Math.round(amount), day, startDate,
+            active: true, generatedThrough: null
+          });
+        }
         await saveRecurring();
         await applyRecurringAll();
         renderRecurring();
@@ -1622,18 +1743,35 @@
         const rule = recurringRules.find(r => r.id === id);
         if(!rule) return;
         const name = document.getElementById('edit-name').value.trim();
-        const accountId = document.getElementById('edit-acc').value;
-        const category = document.getElementById('edit-cat').value;
         const amount = parseFloat(document.getElementById('edit-amt').value);
         const day = parseInt(document.getElementById('edit-day').value, 10);
         const startDate = document.getElementById('edit-start').value;
 
-        if(!name || !accountId || !amount || amount<=0 || !day || day<1 || day>31 || !startDate){
+        if(!name || !amount || amount<=0 || !day || day<1 || day>31 || !startDate){
           alert('입력값을 다시 확인해주세요.');
           return;
         }
-        rule.name = name; rule.type = editRuleType; rule.accountId = accountId;
-        rule.category = category; rule.amount = Math.round(amount); rule.day = day; rule.startDate = startDate;
+
+        if(editRuleType === 'transfer'){
+          const fromAccountId = document.getElementById('edit-from-acc').value;
+          const toAccountId = document.getElementById('edit-to-acc').value;
+          if(!fromAccountId || !toAccountId || fromAccountId === toAccountId){
+            alert('보내는 계좌와 받는 계좌를 다르게 선택해주세요.');
+            return;
+          }
+          rule.name = name; rule.type = 'transfer';
+          rule.fromAccountId = fromAccountId; rule.toAccountId = toAccountId;
+          delete rule.accountId; delete rule.category;
+          rule.amount = Math.round(amount); rule.day = day; rule.startDate = startDate;
+        } else {
+          const accountId = document.getElementById('edit-acc').value;
+          const category = document.getElementById('edit-cat').value;
+          if(!accountId){ alert('계좌를 선택해주세요.'); return; }
+          rule.name = name; rule.type = editRuleType; rule.accountId = accountId;
+          rule.category = category; rule.amount = Math.round(amount); rule.day = day; rule.startDate = startDate;
+          delete rule.fromAccountId; delete rule.toAccountId;
+        }
+
         editingRecurringId = null;
         await saveRecurring();
         await applyRecurringAll();
