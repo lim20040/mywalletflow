@@ -1079,6 +1079,22 @@
   function totalOpeningBalance(){
     return accounts.reduce((s,a) => s + (Number(a.openingBalance)||0), 0);
   }
+  function isSavingsAccount(accountId){
+    const a = getAccount(accountId);
+    return !!(a && a.isSavings);
+  }
+  // 저축 계좌로 표시된 모든 계좌의 현재 잔액 합 = "지금까지 모아둔 저축 총액"
+  function totalSavingsAccountBalance(){
+    return accounts.filter(a => a.isSavings).reduce((s,a) => s + accountBalance(a), 0);
+  }
+  // 목록(list) 안에서 "저축으로 잡아야 할 금액" = 예전 방식 저축 입력 + 저축계좌로 들어간 이체
+  function savingsInflow(list){
+    const oldStyle = sumByType(list, 'savings');
+    const viaTransfer = list
+      .filter(e => e.type === 'transfer' && isSavingsAccount(e.toAccountId))
+      .reduce((s,e) => s + e.amount, 0);
+    return oldStyle + viaTransfer;
+  }
 
   /* ===================== HOME VIEW ===================== */
   function renderHome(){
@@ -1092,13 +1108,14 @@
 
     const mIncome = sumByType(monthEntries, 'income');
     const mExpense = sumByType(monthEntries, 'expense');
-    const mSavings = sumByType(monthEntries, 'savings');
+    const mSavings = savingsInflow(monthEntries);
     const mBalance = mIncome - mExpense - mSavings;
 
     const allIncome = sumByType(entries, 'income');
     const allExpense = sumByType(entries, 'expense');
-    const allSavings = sumByType(entries, 'savings');
-    const allBalance = totalOpeningBalance() + allIncome - allExpense - allSavings;
+    const allSavingsFlow = sumByType(entries, 'savings'); // 총 잔액 계산용 (예전 방식 저축만)
+    const allSavingsDisplay = totalSavingsAccountBalance(); // 화면에 보여줄 "총 저축" (저축 계좌 실제 잔액 합)
+    const allBalance = totalOpeningBalance() + allIncome - allExpense - allSavingsFlow;
 
     const accountRows = accounts
       .map(acc => ({ acc, net: accountBalance(acc) }))
@@ -1135,13 +1152,16 @@
 
     const rows = monthEntries.map(e => {
       if(e.type === 'transfer'){
+        const toSavings = isSavingsAccount(e.toAccountId);
+        const cls = toSavings ? 'savings' : 'transfer';
+        const label = toSavings ? '저축' : '이체';
         return `
         <tr data-id="${e.id}">
           <td class="date-cell">${e.date.slice(5).replace('-', '.')}</td>
-          <td><span class="badge transfer">이체</span></td>
+          <td><span class="badge ${cls}">${label}</span></td>
           <td>${escapeHtml(accountName(e.fromAccountId))} → ${escapeHtml(accountName(e.toAccountId))}${e.auto ? '<span class="auto-tag" title="고정비 자동 기록">고정</span>' : ''}</td>
           <td class="memo-cell" title="${escapeHtml(e.memo||'')}">${escapeHtml(e.memo||'')||'-'}</td>
-          <td class="amt transfer">${fmtWon(e.amount)}</td>
+          <td class="amt ${cls}">${fmtWon(e.amount)}</td>
           <td><button class="del-btn" data-del="${e.id}" title="삭제">✕</button></td>
         </tr>
       `;
@@ -1194,7 +1214,7 @@
         <div class="ov-grid">
           <div class="ov-item income"><div class="t">총 수입</div><div class="v">${fmtWon(allIncome)}</div></div>
           <div class="ov-item expense"><div class="t">총 지출</div><div class="v">${fmtWon(allExpense)}</div></div>
-          <div class="ov-item savings"><div class="t">총 저축</div><div class="v">${fmtWon(allSavings)}</div></div>
+          <div class="ov-item savings"><div class="t">총 저축</div><div class="v">${fmtWon(allSavingsDisplay)}</div></div>
         </div>
         ${upcoming ? `
         <div class="upcoming">
@@ -1395,6 +1415,10 @@
             <div class="field-row">
               <div class="field full"><label>시작 잔액 (오늘 기준 현재 잔액을 그대로 입력하세요)</label><input type="number" id="renameBalance" value="${opening}" step="1" /></div>
             </div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink);margin:2px 0 12px;cursor:pointer;">
+              <input type="checkbox" id="renameIsSavings" ${acc.isSavings ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--savings);" />
+              💰 저축/적금 계좌예요 (이 계좌로 이체하면 자동으로 "저축"으로 표시돼요)
+            </label>
             <div class="edit-actions">
               <button class="save-btn" data-save="${acc.id}">저장</button>
               <button class="cancel-btn" data-cancel="1">취소</button>
@@ -1405,7 +1429,7 @@
       return `
         <div class="mgmt-row">
           <div class="mgmt-info">
-            <div class="nm">${escapeHtml(acc.name)}</div>
+            <div class="nm">${escapeHtml(acc.name)}${acc.isSavings ? '<span class="paused-tag" style="color:var(--savings);background:var(--savings-bg);">💰 저축계좌</span>' : ''}</div>
             <div class="bal ${bal<0?'neg':''}">현재 ${fmtSigned(bal)} · 내역 ${count}건${opening ? ` · 시작 잔액 ${fmtSigned(opening)}` : ''}</div>
           </div>
           <div class="mgmt-actions">
@@ -1430,6 +1454,10 @@
         <div class="field-row">
           <div class="field full"><label for="newAccBalance">시작 잔액 (선택, 원 · 지금 이 계좌에 있는 실제 금액)</label><input type="number" id="newAccBalance" placeholder="예: 1500000" step="1" /></div>
         </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink);margin:2px 0 12px;cursor:pointer;">
+          <input type="checkbox" id="newAccIsSavings" style="width:16px;height:16px;accent-color:var(--savings);" />
+          💰 저축/적금 계좌예요 (이 계좌로 이체하면 자동으로 "저축"으로 표시돼요)
+        </label>
         <button class="add-btn" id="addAccBtn">+ 계좌 추가하기</button>
       </div>
 
@@ -1453,11 +1481,13 @@
     document.getElementById('addAccBtn').onclick = async () => {
       const nameInput = document.getElementById('newAccName');
       const balInput = document.getElementById('newAccBalance');
+      const savingsInput = document.getElementById('newAccIsSavings');
       const name = nameInput.value.trim();
       if(!name) return;
       if(accounts.some(a => a.name === name)){ alert('이미 같은 이름의 계좌가 있어요.'); return; }
       const openingBalance = balInput.value ? Math.round(parseFloat(balInput.value)) : 0;
-      accounts.push({ id: uid('a'), name, openingBalance });
+      const isSavings = savingsInput ? savingsInput.checked : false;
+      accounts.push({ id: uid('a'), name, openingBalance, isSavings });
       await saveAccounts();
       renderAccounts();
     };
@@ -1477,6 +1507,7 @@
         const id = e.currentTarget.getAttribute('data-save');
         const inp = document.getElementById('renameInput');
         const balInp = document.getElementById('renameBalance');
+        const savingsInp = document.getElementById('renameIsSavings');
         const newName = inp.value.trim();
         if(!newName) return;
         if(accounts.some(a => a.id !== id && a.name === newName)){ alert('이미 같은 이름의 계좌가 있어요.'); return; }
@@ -1484,6 +1515,7 @@
         if(acc){
           acc.name = newName;
           acc.openingBalance = balInp.value ? Math.round(parseFloat(balInp.value)) : 0;
+          acc.isSavings = savingsInp ? savingsInp.checked : false;
         }
         renamingId = null;
         await saveAccounts();
@@ -1528,6 +1560,14 @@
   }
 
   /* ===================== RECURRING VIEW ===================== */
+  function ruleBadgeClass(rule){
+    if(rule.type === 'transfer') return isSavingsAccount(rule.toAccountId) ? 'savings' : 'transfer';
+    return rule.type;
+  }
+  function ruleBadgeLabel(rule){
+    if(rule.type === 'transfer') return isSavingsAccount(rule.toAccountId) ? '저축' : '이체';
+    return TYPE_LABEL[rule.type];
+  }
   function ruleInfoLine(rule){
     const next = rule.active ? nextOccurrence(rule) : null;
     const nextStr = next ? ` · 다음 ${next.getMonth()+1}/${next.getDate()}` : '';
@@ -1586,7 +1626,7 @@
         <div class="mgmt-row">
           <div class="mgmt-info">
             <div class="nm">
-              <span class="badge ${rule.type}">${TYPE_LABEL[rule.type]}</span>
+              <span class="badge ${ruleBadgeClass(rule)}">${ruleBadgeLabel(rule)}</span>
               ${escapeHtml(rule.name)}
               ${rule.active ? '' : '<span class="paused-tag">일시중지</span>'}
             </div>
