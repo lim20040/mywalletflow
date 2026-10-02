@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0070)file:///C:/Users/LimKyeongjun/Downloads/personal-budget-tracker_7.html -->
+<!-- saved from url=(0070)file:///C:/Users/LimKyeongjun/Downloads/personal-budget-tracker_8.html -->
 <html lang="ko"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2092,6 +2092,13 @@
     return rows;
   }
 
+  // xlsx 파일이 암호로 잠긴 상태인지 확인 (암호화된 오피스 파일은 ZIP이 아니라 OLE2/CFB 컨테이너로 시작함)
+  function isEncryptedOfficeFile(arrayBuffer){
+    const bytes = new Uint8Array(arrayBuffer.slice(0, 8));
+    const sig = [0xD0,0xCF,0x11,0xE0,0xA1,0xB1,0x1A,0xE1];
+    return sig.length === bytes.length && sig.every((b,i) => bytes[i] === b);
+  }
+
   // 암호 걸린 xlsx 파일이면 비밀번호로 먼저 풀어서 암호 없는 버전으로 바꿔줌
   async function maybeDecryptXlsx(arrayBuffer, password){
     if(!password) return arrayBuffer;
@@ -2412,6 +2419,9 @@
               } else {
                 let buf = ev.target.result;
                 if(isXlsx && password) buf = await maybeDecryptXlsx(buf, password);
+                if(isXlsx && isEncryptedOfficeFile(buf)){
+                  throw new Error('ENCRYPTED_UNRESOLVED');
+                }
                 const rows = await parseSpreadsheetFile(buf);
                 const headerRowIdx = guessHeaderRow(rows);
                 const headerRow = rows[headerRowIdx] || [];
@@ -2423,7 +2433,11 @@
               }
             } catch(err){
               console.error(err);
-              alert(`'${file.name}' 파일을 읽는 데 실패했어요. ${isPdf ? 'PDF에 텍스트가 있는지 확인해주세요 (스캔 이미지 PDF는 안돼요).' : '엑셀(.xlsx) 또는 CSV 파일이 맞는지, 비밀번호가 맞는지 확인해주세요.'}`);
+              if(err.message === 'ENCRYPTED_UNRESOLVED'){
+                alert(`'${file.name}' 파일은 비밀번호로 잠겨있어요.\n위쪽 "비밀번호" 칸에 암호를 입력한 뒤, 파일을 다시 선택해주세요.\n(비밀번호를 입력했는데도 이 메시지가 뜬다면, 비밀번호가 틀렸을 수 있어요.)`);
+              } else {
+                alert(`'${file.name}' 파일을 읽는 데 실패했어요. ${isPdf ? 'PDF에 텍스트가 있는지 확인해주세요 (스캔 이미지 PDF는 안돼요).' : '엑셀(.xlsx) 또는 CSV 파일이 맞는지 확인해주세요.'}`);
+              }
             }
             pending--;
             if(pending === 0) renderImport();
