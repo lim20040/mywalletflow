@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<!-- saved from url=(0070)file:///C:/Users/LimKyeongjun/Downloads/personal-budget-tracker_2.html -->
+<html lang="ko"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>나의 가계부</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com/">
+<link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
+<link href="./index_files/css2" rel="stylesheet">
 <style>
   :root{
     --paper:#F3F7F0;
@@ -748,14 +748,179 @@
     .header-row h1{ font-size:22px; }
   }
 </style>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="./index_files/xlsx.full.min.js.다운로드"></script>
+<script src="./index_files/firebase-app-compat.js.다운로드"></script>
+<script src="./index_files/firebase-auth-compat.js.다운로드"></script>
+<script src="./index_files/firebase-firestore-compat.js.다운로드"></script>
 </head>
 <body>
   <div class="wrap" id="app">
-    <div class="loading" id="loading">불러오는 중…</div>
-  </div>
+      <div class="header-row">
+        <div>
+          <h1>나의 가계부</h1>
+          <p>2026년 10월 기준</p>
+        </div>
+        <div class="header-btns">
+          <button class="ghost-btn" id="importBtn">📥 가져오기</button>
+          <button class="ghost-btn" id="manageRecBtn">🔁 고정비</button>
+          <button class="ghost-btn" id="manageAccBtn">⚙ 계좌 관리</button>
+          <span class="ghost-btn" style="cursor:default;" title="모든 기기에 자동 동기화 중">☁ 동기화 중</span>
+        </div>
+      </div>
+
+      <div class="overall">
+        <div class="ov-label">지금까지의 총 잔액</div>
+        <div class="ov-main">
+          <span class="num">₩845,249</span>
+          <span class="cap">시작 잔액 + 수입 − 지출 − 저축</span>
+        </div>
+        <div class="ov-grid">
+          <div class="ov-item income"><div class="t">총 수입</div><div class="v">₩2,473,282</div></div>
+          <div class="ov-item expense"><div class="t">총 지출</div><div class="v">₩1,726,130</div></div>
+          <div class="ov-item savings"><div class="t">총 저축</div><div class="v">₩352,072</div></div>
+        </div>
+        
+        <div class="upcoming">
+          <div class="t-row">
+            <span class="t">다가오는 고정비 (30일 이내)</span>
+            <button class="manage-link" id="toRecLink">관리 →</button>
+          </div>
+          
+        <div class="upcoming-row">
+          <span class="u-left"><span class="u-date">10/13</span>유튜브 프리미엄</span>
+          <span class="u-amt">-₩14,900</span>
+        </div>
+      
+        <div class="upcoming-row">
+          <span class="u-left"><span class="u-date">10/13</span>비아지오 자전거 할부</span>
+          <span class="u-amt">-₩59,900</span>
+        </div>
+      
+        <div class="upcoming-row">
+          <span class="u-left"><span class="u-date">10/13</span>핸드폰요금</span>
+          <span class="u-amt">-₩69,000</span>
+        </div>
+      
+        <div class="upcoming-row">
+          <span class="u-left"><span class="u-date">10/14</span>쿠팡 월회비</span>
+          <span class="u-amt">-₩7,900</span>
+        </div>
+      
+        <div class="upcoming-row">
+          <span class="u-left"><span class="u-date">10/14</span>김영편입 장황수학</span>
+          <span class="u-amt">-₩340,000</span>
+        </div>
+      
+        </div>
+        
+        <div class="by-account">
+          <div class="t-row">
+            <span class="t">계좌별 잔액</span>
+            <button class="manage-link" id="toAccountsLink">계좌 관리 →</button>
+          </div>
+          
+        <div class="acc-row">
+          <span class="acc-name">키움 장투</span>
+          <span class="acc-val ">₩352,072</span>
+        </div>
+      
+        <div class="acc-row">
+          <span class="acc-name">토스뱅크</span>
+          <span class="acc-val ">₩189,235</span>
+        </div>
+      
+        <div class="acc-row">
+          <span class="acc-name">국민은행 나라사랑 고정비</span>
+          <span class="acc-val ">₩32,342</span>
+        </div>
+      
+        <div class="acc-row">
+          <span class="acc-name">미분류</span>
+          <span class="acc-val neg">-₩28,400</span>
+        </div>
+      
+        </div>
+      </div>
+
+      <div class="month-nav">
+        <button id="prevMonth" aria-label="이전 달">‹</button>
+        <div class="month-label">2026년 10월</div>
+        <button id="nextMonth" aria-label="다음 달">›</button>
+      </div>
+
+      <div class="acc-tabs" id="accTabs">
+      <button class="acc-tab active" data-acc="all">전체</button>
+    
+      <button class="acc-tab " data-acc="a1787323886804cbirmy">토스뱅크</button>
+    
+      <button class="acc-tab " data-acc="a1787323886804imfha8">국민은행 나라사랑 고정비</button>
+    
+      <button class="acc-tab " data-acc="a1788420143664q7km9s">미분류</button>
+    
+      <button class="acc-tab " data-acc="a1788420159132ly68rk">키움 장투</button>
+    </div>
+
+      <div class="summary">
+        <div class="sum-card income"><div class="label">이번 달 수입</div><div class="value">₩0</div></div>
+        <div class="sum-card expense"><div class="label">이번 달 지출</div><div class="value">₩2,900</div></div>
+        <div class="sum-card savings"><div class="label">이번 달 저축</div><div class="value">₩0</div></div>
+        <div class="sum-card balance"><div class="label">남은 잔액</div><div class="value">-₩2,900</div></div>
+      </div>
+
+      <div class="form-card">
+        <h2>새 내역 추가</h2>
+        <div class="type-toggle">
+          <label class="expense-lbl active"><input type="radio" name="type" value="expense" checked=""> 지출</label>
+          <label class="income-lbl "><input type="radio" name="type" value="income"> 수입</label>
+          <label class="savings-lbl "><input type="radio" name="type" value="savings"> 저축</label>
+          <label class="transfer-lbl "><input type="radio" name="type" value="transfer"> 이체</label>
+        </div>
+        
+        <div class="field-row">
+          <div class="field"><label for="f-date">날짜</label><input type="date" id="f-date" value="2026-10-02"></div>
+          <div class="field">
+            <label for="f-acc">계좌</label>
+            <select id="f-acc"><option value="a1787323886804cbirmy">토스뱅크</option><option value="a1787323886804imfha8">국민은행 나라사랑 고정비</option><option value="a1788420143664q7km9s">미분류</option><option value="a1788420159132ly68rk">키움 장투</option></select>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label for="f-cat">카테고리</label><select id="f-cat"><option value="식비">식비</option><option value="교통">교통</option><option value="주거/공과금">주거/공과금</option><option value="쇼핑">쇼핑</option><option value="문화/여가">문화/여가</option><option value="의료/건강">의료/건강</option><option value="교육">교육</option><option value="통신">통신</option><option value="경조사">경조사</option><option value="기타지출">기타지출</option></select></div>
+          <div class="field"><label for="f-amt">금액 (원)</label><input type="number" id="f-amt" placeholder="예: 15000" min="0" step="1"></div>
+        </div>
+        <div class="field-row">
+          <div class="field full"><label for="f-memo">메모 (선택)</label><input type="text" id="f-memo" placeholder="예: 점심 식사" maxlength="40"></div>
+        </div>
+        
+        <button class="add-btn" id="addBtn">+ 내역 추가하기</button>
+        <div class="form-msg" id="formMsg"></div>
+        <div class="hint" style="margin-top:8px;">매달 반복되는 지출/수입/이체라면 <button id="goAddRec" type="button">고정비로 등록</button>하면 자동으로 기록돼요.</div>
+      </div>
+
+      <div class="list-card">
+        <div class="list-head">
+          <h2>내역 보기</h2>
+          <span class="count">1건</span>
+        </div>
+        
+      <table>
+        <thead><tr><th>날짜</th><th>구분</th><th>카테고리</th><th>메모</th><th class="num">금액</th><th></th></tr></thead>
+        <tbody>
+      <tr data-id="e17909249544675dkgef">
+        <td class="date-cell">10.02</td>
+        <td><span class="badge expense">지출</span></td>
+        <td>통신<span class="auto-tag" title="고정비 자동 기록">고정</span><span class="acc-chip">토스뱅크</span></td>
+        <td class="memo-cell" title="마이크로소프트">마이크로소프트</td>
+        <td class="amt expense">-₩2,900</td>
+        <td><button class="del-btn" data-del="e17909249544675dkgef" title="삭제">✕</button></td>
+      </tr>
+    </tbody>
+      </table>
+    
+        <div class="list-footer">
+          <button class="reset-btn" id="resetBtn">전체 내역 초기화</button>
+        </div>
+      </div>
+    </div>
 
 <script>
 (function(){
@@ -797,7 +962,10 @@
   let entries = [];
   let accounts = []; // {id, name}
   let recurringRules = []; // {id, name, type, category, accountId, amount, day, startDate, active, generatedThrough}
-  let view = 'home'; // 'home' | 'accounts' | 'recurring'
+  let view = 'home'; // 'home' | 'accounts' | 'recurring' | 'import'
+  let importParsedRows = [];
+  let importHeaderRowIdx = 0;
+  let importFileName = '';
   let viewYear, viewMonth;
   let currentType = 'expense';
   let selectedAccountId = 'all';
@@ -837,6 +1005,11 @@
   function nextMonthKey(key){
     let [y,m] = key.split('-').map(Number);
     m++; if(m>12){ m=1; y++; }
+    return `${y}-${String(m).padStart(2,'0')}`;
+  }
+  function prevMonthKey(key){
+    let [y,m] = key.split('-').map(Number);
+    m--; if(m<1){ m=12; y--; }
     return `${y}-${String(m).padStart(2,'0')}`;
   }
   function fmtDateObj(d){
@@ -906,6 +1079,7 @@
   function renderCurrentView(){
     if(view === 'accounts') renderAccounts();
     else if(view === 'recurring') renderRecurring();
+    else if(view === 'import') renderImport();
     else renderHome();
   }
 
@@ -1199,6 +1373,7 @@
           <p>${viewYear}년 ${viewMonth+1}월 기준</p>
         </div>
         <div class="header-btns">
+          <button class="ghost-btn" id="importBtn">📥 가져오기</button>
           <button class="ghost-btn" id="manageRecBtn">🔁 고정비</button>
           <button class="ghost-btn" id="manageAccBtn">⚙ 계좌 관리</button>
           ${syncMode ? `<span class="ghost-btn" style="cursor:default;" title="모든 기기에 자동 동기화 중">☁ 동기화 중</span>` : ''}
@@ -1316,6 +1491,7 @@
     document.getElementById('nextMonth').onclick = () => { viewMonth++; if(viewMonth>11){viewMonth=0;viewYear++;} renderHome(); };
     document.getElementById('manageAccBtn').onclick = () => { view='accounts'; renderAccounts(); };
     document.getElementById('manageRecBtn').onclick = () => { view='recurring'; renderRecurring(); };
+    document.getElementById('importBtn').onclick = () => { view='import'; renderImport(); };
     const toAccLink = document.getElementById('toAccountsLink');
     if(toAccLink) toAccLink.onclick = () => { view='accounts'; renderAccounts(); };
     const toRecLink = document.getElementById('toRecLink');
@@ -1348,13 +1524,16 @@
 
     const resetBtn = document.getElementById('resetBtn');
     if(resetBtn){
-      resetBtn.onclick = () => {
-        if(confirm('저장된 모든 내역을 삭제할까요? 계좌·고정비 설정은 유지됩니다. 이 작업은 되돌릴 수 없어요.')){
+      resetBtn.onclick = async () => {
+        if(confirm('저장된 모든 거래 내역을 삭제할까요?\n계좌 목록과 고정비 설정은 그대로 남고, 이번 달부터 새로 기록하게 됩니다.\n이 작업은 되돌릴 수 없어요.')){
           entries = [];
           selectedAccountId = 'all';
-          recurringRules.forEach(r => r.generatedThrough = null);
-          saveEntries();
-          saveRecurring();
+          // 고정비가 과거 내역을 전부 다시 만들지 않도록, 이번 달부터만 다시 생성되게 포인터를 맞춰줌
+          const curKey = monthKeyOf(todayStr());
+          recurringRules.forEach(r => { r.generatedThrough = prevMonthKey(curKey); });
+          await saveEntries();
+          await saveRecurring();
+          await applyRecurringAll();
           renderHome();
         }
       };
@@ -1832,6 +2011,309 @@
     });
   }
 
+  /* ===================== IMPORT (엑셀/CSV 가져오기) ===================== */
+  function guessHeaderRow(rows){
+    let bestIdx = 0, bestScore = -1;
+    const limit = Math.min(rows.length, 15);
+    for(let i=0;i<limit;i++){
+      const row = rows[i] || [];
+      let score = 0;
+      row.forEach(cell => {
+        const s = String(cell==null?'':cell).trim();
+        if(s && !/^-?[\d,]+(\.\d+)?$/.test(s)) score++;
+      });
+      if(row.length >= 2 && score > bestScore){ bestScore = score; bestIdx = i; }
+    }
+    return bestIdx;
+  }
+
+  function guessColumnMapping(headerRow){
+    const map = { date:-1, amountMode:'single', amountIn:-1, amountOut:-1, amount:-1, memo:-1 };
+    headerRow.forEach((cell, idx) => {
+      const s = String(cell==null?'':cell);
+      if(map.date===-1 && /(일시|날짜|거래일)/.test(s)) map.date = idx;
+      if(/입금/.test(s)) map.amountIn = idx;
+      if(/출금/.test(s)) map.amountOut = idx;
+      if(map.amount===-1 && /(거래금액|금액)/.test(s) && !/입금|출금/.test(s)) map.amount = idx;
+      if(map.memo===-1 && /(적요|메모|내용|상대|설명|가맹점)/.test(s)) map.memo = idx;
+    });
+    map.amountMode = (map.amountIn>=0 || map.amountOut>=0) ? 'split' : 'single';
+    return map;
+  }
+
+  function parseAmountCell(v){
+    if(v===null || v===undefined) return 0;
+    const s = String(v).replace(/[,₩\s]/g,'').trim();
+    if(!s) return 0;
+    const n = parseFloat(s);
+    return isNaN(n) ? 0 : n;
+  }
+
+  function normalizeImportDate(v){
+    const s = String(v==null?'':v).trim();
+    if(!s) return null;
+    let m = s.match(/(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/);
+    if(m) return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+    const d = new Date(s);
+    if(!isNaN(d.getTime())) return fmtDateObj(d);
+    return null;
+  }
+
+  function currentImportColMap(){
+    const dateSel = document.getElementById('imp-col-date');
+    const modeSel = document.getElementById('imp-amount-mode');
+    const memoSel = document.getElementById('imp-col-memo');
+    const mode = modeSel ? modeSel.value : 'single';
+    const map = {
+      date: dateSel ? parseInt(dateSel.value,10) : -1,
+      amountMode: mode,
+      amountIn: -1, amountOut: -1, amount: -1,
+      memo: memoSel ? parseInt(memoSel.value,10) : -1
+    };
+    if(mode === 'split'){
+      const inSel = document.getElementById('imp-col-in');
+      const outSel = document.getElementById('imp-col-out');
+      map.amountIn = inSel ? parseInt(inSel.value,10) : -1;
+      map.amountOut = outSel ? parseInt(outSel.value,10) : -1;
+    } else {
+      const amtSel = document.getElementById('imp-col-amount');
+      map.amount = amtSel ? parseInt(amtSel.value,10) : -1;
+    }
+    return map;
+  }
+
+  function computeImportCandidates(colMap, accountId){
+    const rows = importParsedRows;
+    const existingSig = new Set(entries.map(e => `${e.date}|${e.type}|${e.amount}|${e.accountId}|${e.memo||''}`));
+    const out = [];
+    for(let i = importHeaderRowIdx + 1; i < rows.length; i++){
+      const row = rows[i] || [];
+      if(row.length === 0) continue;
+      const date = colMap.date >= 0 ? normalizeImportDate(row[colMap.date]) : null;
+      if(!date) continue;
+
+      let type, amount;
+      if(colMap.amountMode === 'split'){
+        const inAmt = colMap.amountIn >= 0 ? parseAmountCell(row[colMap.amountIn]) : 0;
+        const outAmt = colMap.amountOut >= 0 ? parseAmountCell(row[colMap.amountOut]) : 0;
+        if(inAmt > 0){ type = 'income'; amount = inAmt; }
+        else if(outAmt > 0){ type = 'expense'; amount = outAmt; }
+        else continue;
+      } else {
+        const v = colMap.amount >= 0 ? parseAmountCell(row[colMap.amount]) : 0;
+        if(!v) continue;
+        type = v >= 0 ? 'income' : 'expense';
+        amount = Math.abs(v);
+      }
+      const memo = colMap.memo >= 0 ? String(row[colMap.memo]==null?'':row[colMap.memo]).trim() : '';
+      const category = type === 'income' ? '기타수입' : '기타지출';
+      const sig = `${date}|${type}|${amount}|${accountId}|${memo}`;
+      out.push({ date, type, amount, memo, category, accountId, dup: existingSig.has(sig) });
+    }
+    return out;
+  }
+
+  function renderImport(){
+    const hasData = importParsedRows.length > 0;
+    const headerRow = hasData ? (importParsedRows[importHeaderRowIdx] || []) : [];
+    const guessed = hasData ? guessColumnMapping(headerRow) : null;
+    const colOptions = (selected) => headerRow.map((c,idx) =>
+      `<option value="${idx}" ${idx===selected?'selected':''}>${idx+1}. ${escapeHtml(String(c==null||c===''?'(빈칸)':c))}</option>`
+    ).join('') + `<option value="-1" ${selected===-1?'selected':''}>(사용 안 함)</option>`;
+
+    app.innerHTML = `
+      <div class="header-row">
+        <div><h1>엑셀/CSV 가져오기</h1><p>토스 등 은행 앱에서 내보낸 거래내역 파일을 읽어서 한번에 추가해요</p></div>
+        <button class="ghost-btn" id="backBtn">← 돌아가기</button>
+      </div>
+
+      <div class="mgmt-add-card">
+        <h2>1. 파일 업로드</h2>
+        ${accounts.length ? `
+        <div class="field-row">
+          <div class="field full"><label for="imp-target-acc">어느 계좌의 거래내역인가요?</label>
+            <select id="imp-target-acc">${accounts.map(a=>`<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('')}</select>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field full"><label for="imp-file">파일 선택 (.xlsx, .xls, .csv)</label><input type="file" id="imp-file" accept=".xlsx,.xls,.csv" /></div>
+        </div>
+        ${importFileName ? `<p style="font-size:12px;color:var(--ink-soft);margin:4px 0 0;">불러온 파일: ${escapeHtml(importFileName)} (${importParsedRows.length}행 감지됨)</p>` : ''}
+        ` : `<div class="hint">계좌를 먼저 추가해주세요.</div>`}
+      </div>
+
+      ${hasData ? `
+      <div class="mgmt-add-card">
+        <h2>2. 열 지정하기</h2>
+        <div class="field-row">
+          <div class="field full"><label for="imp-header-row">헤더(제목) 행 번호 — 보통 거래내역 표의 첫 줄</label>
+            <input type="number" id="imp-header-row" min="1" max="${importParsedRows.length}" value="${importHeaderRowIdx+1}" />
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field full"><label for="imp-col-date">날짜가 있는 열</label><select id="imp-col-date">${colOptions(guessed.date)}</select></div>
+        </div>
+        <div class="field-row">
+          <div class="field full"><label for="imp-amount-mode">금액 형식</label>
+            <select id="imp-amount-mode">
+              <option value="split" ${guessed.amountMode==='split'?'selected':''}>입금액 / 출금액 열이 따로 있어요</option>
+              <option value="single" ${guessed.amountMode==='single'?'selected':''}>금액 열 하나에 +/- 로 구분돼요</option>
+            </select>
+          </div>
+        </div>
+        <div id="imp-amount-fields">
+          ${guessed.amountMode === 'split' ? `
+            <div class="field-row">
+              <div class="field"><label for="imp-col-in">입금액 열</label><select id="imp-col-in">${colOptions(guessed.amountIn)}</select></div>
+              <div class="field"><label for="imp-col-out">출금액 열</label><select id="imp-col-out">${colOptions(guessed.amountOut)}</select></div>
+            </div>
+          ` : `
+            <div class="field-row">
+              <div class="field full"><label for="imp-col-amount">금액 열</label><select id="imp-col-amount">${colOptions(guessed.amount)}</select></div>
+            </div>
+          `}
+        </div>
+        <div class="field-row">
+          <div class="field full"><label for="imp-col-memo">메모/적요 열 (선택)</label><select id="imp-col-memo">${colOptions(guessed.memo)}</select></div>
+        </div>
+        <button class="add-btn" id="imp-preview-btn" type="button">미리보기 만들기</button>
+      </div>
+      ` : ''}
+
+      <div id="imp-preview-area"></div>
+    `;
+
+    attachImportEvents();
+  }
+
+  function attachImportEvents(){
+    document.getElementById('backBtn').onclick = () => {
+      view = 'home'; importParsedRows = []; importFileName = '';
+      renderHome();
+    };
+
+    const fileInput = document.getElementById('imp-file');
+    if(fileInput){
+      fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try{
+            const data = new Uint8Array(ev.target.result);
+            const wb = XLSX.read(data, { type: 'array', cellDates: true });
+            const sheet = wb.Sheets[wb.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+            importParsedRows = rows;
+            importHeaderRowIdx = guessHeaderRow(rows);
+            importFileName = file.name;
+            renderImport();
+          } catch(err){
+            console.error(err);
+            alert('파일을 읽는 데 실패했어요. 엑셀(.xlsx) 또는 CSV 파일이 맞는지 확인해주세요.');
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      });
+    }
+
+    const headerRowInput = document.getElementById('imp-header-row');
+    if(headerRowInput){
+      headerRowInput.addEventListener('change', () => {
+        const v = parseInt(headerRowInput.value, 10);
+        if(v >= 1 && v <= importParsedRows.length){ importHeaderRowIdx = v - 1; renderImport(); }
+      });
+    }
+
+    const amountModeSel = document.getElementById('imp-amount-mode');
+    if(amountModeSel){
+      amountModeSel.addEventListener('change', () => {
+        const headerRow = importParsedRows[importHeaderRowIdx] || [];
+        const area = document.getElementById('imp-amount-fields');
+        const colOptions = (selected) => headerRow.map((c,idx) =>
+          `<option value="${idx}" ${idx===selected?'selected':''}>${idx+1}. ${escapeHtml(String(c==null||c===''?'(빈칸)':c))}</option>`
+        ).join('') + `<option value="-1">(사용 안 함)</option>`;
+        if(amountModeSel.value === 'split'){
+          area.innerHTML = `
+            <div class="field-row">
+              <div class="field"><label for="imp-col-in">입금액 열</label><select id="imp-col-in">${colOptions(-1)}</select></div>
+              <div class="field"><label for="imp-col-out">출금액 열</label><select id="imp-col-out">${colOptions(-1)}</select></div>
+            </div>`;
+        } else {
+          area.innerHTML = `
+            <div class="field-row">
+              <div class="field full"><label for="imp-col-amount">금액 열</label><select id="imp-col-amount">${colOptions(-1)}</select></div>
+            </div>`;
+        }
+      });
+    }
+
+    const previewBtn = document.getElementById('imp-preview-btn');
+    if(previewBtn) previewBtn.onclick = renderImportPreview;
+  }
+
+  function renderImportPreview(){
+    const accSel = document.getElementById('imp-target-acc');
+    const accountId = accSel ? accSel.value : null;
+    const colMap = currentImportColMap();
+    if(colMap.date < 0){ alert('날짜 열을 선택해주세요.'); return; }
+    if(!accountId){ alert('계좌를 선택해주세요.'); return; }
+
+    const candidates = computeImportCandidates(colMap, accountId);
+    const area = document.getElementById('imp-preview-area');
+    const newCount = candidates.filter(c => !c.dup).length;
+    const dupCount = candidates.length - newCount;
+
+    const rowsHtml = candidates.slice(0, 15).map(c => `
+      <tr>
+        <td class="date-cell">${c.date}</td>
+        <td><span class="badge ${c.type}">${TYPE_LABEL[c.type]}</span></td>
+        <td class="memo-cell" title="${escapeHtml(c.memo)}">${escapeHtml(c.memo) || '-'}</td>
+        <td class="amt ${c.type}">${c.type==='income'?'+':'-'}${fmtWon(c.amount)}</td>
+        <td style="font-size:11px;color:var(--ink-soft);white-space:nowrap;">${c.dup ? '이미 있음' : ''}</td>
+      </tr>
+    `).join('');
+
+    area.innerHTML = `
+      <div class="list-card">
+        <div class="list-head">
+          <h2>3. 미리보기</h2>
+          <span class="count">총 ${candidates.length}건 · 새 항목 ${newCount}건${dupCount ? ` · 중복 추정 ${dupCount}건(제외)` : ''}</span>
+        </div>
+        ${candidates.length ? `
+        <table>
+          <thead><tr><th>날짜</th><th>구분</th><th>메모</th><th class="num">금액</th><th></th></tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+        ${candidates.length > 15 ? `<p style="font-size:12px;color:var(--ink-soft);padding:8px 4px;">...외 ${candidates.length-15}건 더 (가져오기엔 전부 포함돼요)</p>` : ''}
+        ` : `<div class="empty-state"><div class="big">읽을 수 있는 거래가 없어요</div><div class="small">헤더 행 번호와 열 지정을 다시 확인해주세요.</div></div>`}
+        <div style="padding:14px 4px;">
+          <button class="add-btn" id="imp-confirm-btn" ${newCount===0 ? 'disabled' : ''}>이 중 새 항목 ${newCount}건 가져오기</button>
+        </div>
+      </div>
+    `;
+
+    const confirmBtn = document.getElementById('imp-confirm-btn');
+    if(confirmBtn){
+      confirmBtn.onclick = async () => {
+        const toAdd = candidates.filter(c => !c.dup);
+        toAdd.forEach(c => {
+          entries.push({
+            id: uid('e'), date: c.date, type: c.type, accountId: c.accountId,
+            category: c.category, amount: Math.round(c.amount), memo: c.memo
+          });
+        });
+        await saveEntries();
+        alert(`${toAdd.length}건을 가져왔어요.`);
+        importParsedRows = []; importFileName = '';
+        view = 'home';
+        const d = toAdd.length ? new Date(toAdd[toAdd.length-1].date + 'T00:00:00') : null;
+        if(d){ viewYear = d.getFullYear(); viewMonth = d.getMonth(); }
+        renderHome();
+      };
+    }
+  }
+
   (async function init(){
     if(firebaseReady()){
       try{
@@ -1859,5 +2341,6 @@
   })();
 })();
 </script>
-</body>
-</html>
+
+
+</body></html>
