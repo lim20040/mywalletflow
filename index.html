@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0070)file:///C:/Users/LimKyeongjun/Downloads/personal-budget-tracker_9.html -->
+<!-- saved from url=(0071)file:///C:/Users/LimKyeongjun/Downloads/personal-budget-tracker_10.html -->
 <html lang="ko"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2594,12 +2594,11 @@
       allCandidates = allCandidates.concat(cands.map(c => ({ ...c, sourceFile: f.fileName })));
     });
 
-    // 계좌에 아직 내역이 하나도 없는 "새 계좌"라면, 가져온 거래의 잔액 정보로 시작 잔액을 자동 계산
+    // 가져온 거래의 "거래 후 잔액"으로 시작 잔액을 역산 — 새 계좌면 자동 적용, 기존 계좌면 선택해서 적용
     const touchedAccountIds = Array.from(new Set(ready.map(f => f.accountId)));
-    const openingSuggestions = {}; // accountId -> 계산된 시작 잔액
+    const openingSuggestions = {}; // accountId -> { value, isFresh }
     touchedAccountIds.forEach(accId => {
       const alreadyHasData = entries.some(e => e.accountId === accId || e.fromAccountId === accId || e.toAccountId === accId);
-      if(alreadyHasData) return; // 기존 내역이 있는 계좌는 건드리지 않음 (덮어쓰기 방지)
       const candsForAcc = allCandidates
         .filter(c => c.accountId === accId && c.balance !== null && c.balance !== undefined && !isNaN(c.balance))
         .sort((a,b) => a.date.localeCompare(b.date));
@@ -2608,14 +2607,18 @@
       const signedAmount = first.type === 'transfer'
         ? (first.toAccountId === accId ? first.amount : -first.amount)
         : (first.type === 'income' ? first.amount : -first.amount);
-      openingSuggestions[accId] = Math.round(first.balance - signedAmount);
+      openingSuggestions[accId] = { value: Math.round(first.balance - signedAmount), isFresh: !alreadyHasData };
     });
 
-    const openingNoteHtml = Object.keys(openingSuggestions).length ? `
+    const openingEntries = Object.entries(openingSuggestions);
+    const openingNoteHtml = openingEntries.length ? `
       <div class="hint" style="margin:0 0 12px;">
-        💡 새 계좌의 시작 잔액을 자동으로 맞출게요:<br/>
-        ${Object.entries(openingSuggestions).map(([accId, val]) =>
-          `· ${escapeHtml(accountName(accId))}: ${fmtSigned(val)}`
+        ${openingEntries.map(([accId, info]) => info.isFresh
+          ? `💡 새 계좌 '${escapeHtml(accountName(accId))}'의 시작 잔액을 자동으로 ${fmtSigned(info.value)}(으)로 맞출게요.`
+          : `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+               <input type="checkbox" data-apply-opening="${accId}" />
+               '${escapeHtml(accountName(accId))}'은 이미 내역이 있는 계좌예요. 가져온 내역 기준 시작 잔액은 ${fmtSigned(info.value)}이에요 — 지금 설정값으로 덮어쓸까요?
+             </label>`
         ).join('<br/>')}
       </div>
     ` : '';
@@ -2696,11 +2699,17 @@
           }
         });
 
-        // 새 계좌의 시작 잔액 자동 적용
+        // 새 계좌는 자동 적용, 기존 계좌는 체크박스로 선택한 것만 적용
         const appliedOpenings = [];
-        Object.entries(openingSuggestions).forEach(([accId, val]) => {
+        Object.entries(openingSuggestions).forEach(([accId, info]) => {
           const acc = getAccount(accId);
-          if(acc){ acc.openingBalance = val; appliedOpenings.push(`${acc.name}: ${fmtSigned(val)}`); }
+          if(!acc) return;
+          const checkbox = document.querySelector(`[data-apply-opening="${accId}"]`);
+          const shouldApply = info.isFresh || (checkbox && checkbox.checked);
+          if(shouldApply){
+            acc.openingBalance = info.value;
+            appliedOpenings.push(`${acc.name}: ${fmtSigned(info.value)}`);
+          }
         });
 
         await saveEntries();
