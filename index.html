@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0070)file:///C:/Users/LimKyeongjun/Downloads/personal-budget-tracker_8.html -->
+<!-- saved from url=(0070)file:///C:/Users/LimKyeongjun/Downloads/personal-budget-tracker_9.html -->
 <html lang="ko"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2400,6 +2400,7 @@
     if(fileInput){
       fileInput.addEventListener('change', (e) => {
         const files = Array.from(e.target.files || []);
+        e.target.value = ''; // 같은 파일을 다시 선택해도 change 이벤트가 또 발생하도록 초기화
         if(!files.length) return;
         const pwInput = document.getElementById('imp-file-password');
         const password = pwInput ? pwInput.value : '';
