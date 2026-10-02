@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0070)file:///C:/Users/LimKyeongjun/Downloads/personal-budget-tracker_6.html -->
+<!-- saved from url=(0070)file:///C:/Users/LimKyeongjun/Downloads/personal-budget-tracker_7.html -->
 <html lang="ko"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -750,6 +750,7 @@
 </style>
 <script src="./index_files/xlsx.full.min.js.다운로드"></script>
 <script src="./index_files/pdf.min.js.다운로드"></script>
+<script src="./index_files/xlsx-populate.min.js.다운로드"></script>
 <script src="./index_files/firebase-app-compat.js.다운로드"></script>
 <script src="./index_files/firebase-auth-compat.js.다운로드"></script>
 <script src="./index_files/firebase-firestore-compat.js.다운로드"></script>
@@ -2071,7 +2072,7 @@
       const balance = numberTokens.length >= 2 ? parseAmountCell(numberTokens[numberTokens.length - 1]) : null;
       const memo = rest.replace(/-?\d{1,3}(?:,\d{3})*(?:\.\d+)?/g, ' ').replace(/입금|출금/g,' ').replace(/\s+/g,' ').trim();
       const category = type === 'income' ? '기타수입' : '기타지출';
-      const sig = `${date}|${type}|${amount}|${accountId}|${memo}`;
+      const sig = entrySig({ type, date, amount, accountId, memo });
       out.push({ date, type, amount, memo, category, accountId, balance, dup: existingSig.has(sig) });
     });
     return out;
@@ -2089,6 +2090,20 @@
       if(cells.some(c => c !== '')) rows.push(cells);
     });
     return rows;
+  }
+
+  // 암호 걸린 xlsx 파일이면 비밀번호로 먼저 풀어서 암호 없는 버전으로 바꿔줌
+  async function maybeDecryptXlsx(arrayBuffer, password){
+    if(!password) return arrayBuffer;
+    if(typeof XlsxPopulate === 'undefined') return arrayBuffer;
+    try{
+      const wb = await XlsxPopulate.fromDataAsync(arrayBuffer, { password });
+      const blob = await wb.outputAsync();
+      return await blob.arrayBuffer();
+    } catch(err){
+      console.warn('비밀번호로 해제하지 못했어요 (암호화 안 된 파일일 수도 있음):', err);
+      return arrayBuffer; // 원본 그대로 다음 단계에서 시도
+    }
   }
 
   async function parseSpreadsheetFile(arrayBuffer){
@@ -2143,18 +2158,26 @@
   }
 
   function guessColumnMapping(headerRow){
-    const map = { date:-1, amountMode:'single', amountIn:-1, amountOut:-1, amount:-1, memo:-1, balance:-1 };
+    const map = { date:-1, amountMode:'single', amountIn:-1, amountOut:-1, amount:-1, memo:-1, balance:-1, institution:-1 };
     headerRow.forEach((cell, idx) => {
       const s = String(cell==null?'':cell);
       if(map.date===-1 && /(일시|날짜|거래일)/.test(s)) map.date = idx;
-      if(/입금/.test(s)) map.amountIn = idx;
-      if(/출금/.test(s)) map.amountOut = idx;
+      if(/^입금/.test(s) || /입금액/.test(s)) map.amountIn = idx;
+      if(/^출금/.test(s) || /출금액/.test(s)) map.amountOut = idx;
       if(map.amount===-1 && /(거래금액|금액)/.test(s) && !/입금|출금/.test(s)) map.amount = idx;
       if(map.memo===-1 && /(적요|메모|내용|상대|설명|가맹점)/.test(s)) map.memo = idx;
       if(map.balance===-1 && /잔액/.test(s)) map.balance = idx;
+      if(map.institution===-1 && /(거래\s*기관|송금\s*기관|상대\s*은행|기관명)/.test(s)) map.institution = idx;
     });
     map.amountMode = (map.amountIn>=0 || map.amountOut>=0) ? 'split' : 'single';
     return map;
+  }
+
+  function entrySig(e){
+    if(e.type === 'transfer'){
+      return `transfer|${e.date}|${e.amount}|${e.fromAccountId}|${e.toAccountId}|${e.memo||''}`;
+    }
+    return `${e.type}|${e.date}|${e.amount}|${e.accountId}|${e.memo||''}`;
   }
 
   function parseAmountCell(v){
@@ -2173,6 +2196,18 @@
     const d = new Date(s);
     if(!isNaN(d.getTime())) return fmtDateObj(d);
     return null;
+  }
+
+  // "거래기관" 열 값이 다른 등록 계좌 이름과 겹치면, 그 계좌와의 실제 이체로 인식
+  function matchAccountByName(text, excludeAccountId){
+    const t = String(text||'').trim().replace(/\s+/g,'');
+    if(!t) return null;
+    return accounts.find(a => {
+      if(a.id === excludeAccountId) return false;
+      const n = String(a.name||'').trim().replace(/\s+/g,'');
+      if(!n) return false;
+      return n.includes(t) || t.includes(n);
+    }) || null;
   }
 
   function computeImportCandidatesFor(rows, headerRowIdx, colMap, accountId, existingSig){
@@ -2197,11 +2232,23 @@
         amount = Math.abs(v);
       }
       const memo = colMap.memo >= 0 ? String(row[colMap.memo]==null?'':row[colMap.memo]).trim() : '';
-      const category = type === 'income' ? '기타수입' : '기타지출';
       const balance = (colMap.balance >= 0 && row[colMap.balance] !== '' && row[colMap.balance] != null)
         ? parseAmountCell(row[colMap.balance]) : null;
-      const sig = `${date}|${type}|${amount}|${accountId}|${memo}`;
-      out.push({ date, type, amount, memo, category, accountId, balance, dup: existingSig.has(sig) });
+
+      const institutionText = colMap.institution >= 0 ? row[colMap.institution] : '';
+      const matchedAcc = institutionText ? matchAccountByName(institutionText, accountId) : null;
+
+      if(matchedAcc){
+        // 등록된 다른 계좌와의 실제 이체로 처리 (수입/지출 총계에 안 잡히게)
+        const fromAccountId = type === 'expense' ? accountId : matchedAcc.id;
+        const toAccountId = type === 'expense' ? matchedAcc.id : accountId;
+        const sig = entrySig({ type: 'transfer', date, amount, fromAccountId, toAccountId, memo });
+        out.push({ date, type: 'transfer', amount, memo, accountId, fromAccountId, toAccountId, balance, dup: existingSig.has(sig) });
+      } else {
+        const category = type === 'income' ? '기타수입' : '기타지출';
+        const sig = entrySig({ type, date, amount, accountId, memo });
+        out.push({ date, type, amount, memo, category, accountId, balance, dup: existingSig.has(sig) });
+      }
     }
     return out;
   }
@@ -2304,6 +2351,11 @@
             <input type="file" id="imp-file" accept=".xlsx,.xls,.csv,.pdf" multiple />
           </div>
         </div>
+        <div class="field-row">
+          <div class="field full"><label for="imp-file-password">엑셀 파일에 암호가 걸려있으면 여기에 입력 (선택, 이번에 올리는 모든 엑셀에 같이 적용돼요)</label>
+            <input type="password" id="imp-file-password" placeholder="파일 열 때 쓰는 비밀번호" autocomplete="off" />
+          </div>
+        </div>
         <p style="font-size:11.5px;color:var(--ink-soft);margin:-6px 0 12px;">PDF 거래내역서(토스뱅크 등)도 변환 없이 그대로 올리시면 돼요.</p>
         <button class="reset-btn" id="togglePasteBtn" type="button">파일 대신 텍스트 붙여넣기 →</button>
         <div id="pasteArea" style="display:none;margin-top:12px;">
@@ -2342,9 +2394,12 @@
       fileInput.addEventListener('change', (e) => {
         const files = Array.from(e.target.files || []);
         if(!files.length) return;
+        const pwInput = document.getElementById('imp-file-password');
+        const password = pwInput ? pwInput.value : '';
         let pending = files.length;
         files.forEach(file => {
           const isPdf = /\.pdf$/i.test(file.name);
+          const isXlsx = /\.xlsx$/i.test(file.name);
           const reader = new FileReader();
           reader.onload = async (ev) => {
             try{
@@ -2355,7 +2410,9 @@
                   pdfLines: lines, accountId: '', saveMapping: false
                 });
               } else {
-                const rows = await parseSpreadsheetFile(ev.target.result);
+                let buf = ev.target.result;
+                if(isXlsx && password) buf = await maybeDecryptXlsx(buf, password);
+                const rows = await parseSpreadsheetFile(buf);
                 const headerRowIdx = guessHeaderRow(rows);
                 const headerRow = rows[headerRowIdx] || [];
                 importFiles.push({
@@ -2366,13 +2423,12 @@
               }
             } catch(err){
               console.error(err);
-              alert(`'${file.name}' 파일을 읽는 데 실패했어요. ${isPdf ? 'PDF에 텍스트가 있는지 확인해주세요 (스캔 이미지 PDF는 안돼요).' : '엑셀(.xlsx) 또는 CSV 파일이 맞는지 확인해주세요.'}`);
+              alert(`'${file.name}' 파일을 읽는 데 실패했어요. ${isPdf ? 'PDF에 텍스트가 있는지 확인해주세요 (스캔 이미지 PDF는 안돼요).' : '엑셀(.xlsx) 또는 CSV 파일이 맞는지, 비밀번호가 맞는지 확인해주세요.'}`);
             }
             pending--;
             if(pending === 0) renderImport();
           };
-          if(isPdf) reader.readAsArrayBuffer(file);
-          else reader.readAsArrayBuffer(file);
+          reader.readAsArrayBuffer(file);
         });
       });
     }
@@ -2514,7 +2570,7 @@
       return;
     }
 
-    const existingSig = new Set(entries.map(e => `${e.date}|${e.type}|${e.amount}|${e.accountId}|${e.memo||''}`));
+    const existingSig = new Set(entries.map(entrySig));
     let allCandidates = [];
     ready.forEach(f => {
       const cands = f.lineMode
@@ -2534,7 +2590,9 @@
         .sort((a,b) => a.date.localeCompare(b.date));
       if(!candsForAcc.length) return;
       const first = candsForAcc[0];
-      const signedAmount = first.type === 'income' ? first.amount : -first.amount;
+      const signedAmount = first.type === 'transfer'
+        ? (first.toAccountId === accId ? first.amount : -first.amount)
+        : (first.type === 'income' ? first.amount : -first.amount);
       openingSuggestions[accId] = Math.round(first.balance - signedAmount);
     });
 
@@ -2551,7 +2609,20 @@
     const newCount = allCandidates.filter(c => !c.dup).length;
     const dupCount = allCandidates.length - newCount;
 
-    const rowsHtml = allCandidates.slice(0, 20).map(c => `
+    const rowsHtml = allCandidates.slice(0, 20).map(c => {
+      if(c.type === 'transfer'){
+        return `
+        <tr>
+          <td class="date-cell">${c.date}</td>
+          <td><span class="badge transfer">이체</span></td>
+          <td class="memo-cell" title="${escapeHtml(accountName(c.fromAccountId))} → ${escapeHtml(accountName(c.toAccountId))}">${escapeHtml(accountName(c.fromAccountId))} → ${escapeHtml(accountName(c.toAccountId))}</td>
+          <td class="memo-cell" title="${escapeHtml(c.memo)}">${escapeHtml(c.memo) || '-'}</td>
+          <td class="amt transfer">${fmtWon(c.amount)}</td>
+          <td style="font-size:11px;color:var(--ink-soft);white-space:nowrap;">${c.dup ? '이미 있음' : ''}</td>
+        </tr>
+      `;
+      }
+      return `
       <tr>
         <td class="date-cell">${c.date}</td>
         <td><span class="badge ${c.type}">${TYPE_LABEL[c.type]}</span></td>
@@ -2560,7 +2631,8 @@
         <td class="amt ${c.type}">${c.type==='income'?'+':'-'}${fmtWon(c.amount)}</td>
         <td style="font-size:11px;color:var(--ink-soft);white-space:nowrap;">${c.dup ? '이미 있음' : ''}</td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
 
     area.innerHTML = `
       <div class="list-card">
@@ -2587,10 +2659,18 @@
       confirmBtn.onclick = async () => {
         const toAdd = allCandidates.filter(c => !c.dup);
         toAdd.forEach(c => {
-          entries.push({
-            id: uid('e'), date: c.date, type: c.type, accountId: c.accountId,
-            category: c.category, amount: Math.round(c.amount), memo: c.memo
-          });
+          if(c.type === 'transfer'){
+            entries.push({
+              id: uid('e'), date: c.date, type: 'transfer',
+              fromAccountId: c.fromAccountId, toAccountId: c.toAccountId,
+              amount: Math.round(c.amount), memo: c.memo
+            });
+          } else {
+            entries.push({
+              id: uid('e'), date: c.date, type: c.type, accountId: c.accountId,
+              category: c.category, amount: Math.round(c.amount), memo: c.memo
+            });
+          }
         });
 
         // 체크해둔 파일들의 열 설정을 해당 계좌에 저장 (다음부터 자동 적용) — 엑셀/CSV만 해당
