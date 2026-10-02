@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0071)file:///C:/Users/LimKyeongjun/Downloads/personal-budget-tracker_11.html -->
+<!-- saved from url=(0071)file:///C:/Users/LimKyeongjun/Downloads/personal-budget-tracker_14.html -->
 <html lang="ko"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2182,6 +2182,30 @@
     return map;
   }
 
+  // 저장해둔 열 설정을 재사용하기 전에, 이번 파일의 실제 헤더 글자와 맞는지 하나씩 확인.
+  // 안 맞으면(파일 구조가 바뀌었으면) 그 항목만 새로 추측해서 조용히 바로잡음.
+  function validateOrGuessMapping(savedMap, headerRow){
+    const guessed = guessColumnMapping(headerRow);
+    const map = Object.assign({}, savedMap);
+    const checks = {
+      date: /(일시|날짜|거래일)/,
+      memo: /(적요|메모|내용|상대|설명|가맹점)/,
+      balance: /잔액/,
+      institution: /(거래\s*기관|송금\s*기관|상대\s*은행|기관명)/,
+      amountIn: /입금/,
+      amountOut: /출금/,
+      amount: /(거래금액|금액)/
+    };
+    Object.keys(checks).forEach(key => {
+      const idx = map[key];
+      if(idx == null || idx < 0 || idx >= headerRow.length){ map[key] = guessed[key]; return; }
+      const headerText = String(headerRow[idx]==null?'':headerRow[idx]);
+      if(!checks[key].test(headerText)) map[key] = guessed[key];
+    });
+    map.amountMode = (map.amountIn>=0 || map.amountOut>=0) ? 'split' : 'single';
+    return map;
+  }
+
   function entrySig(e){
     if(e.type === 'transfer'){
       return `transfer|${e.date}|${e.amount}|${e.fromAccountId}|${e.toAccountId}|${e.memo||''}`;
@@ -2483,8 +2507,8 @@
         if(f.lineMode){ renderImport(); return; }
         const acc = f.accountId ? getAccount(f.accountId) : null;
         if(acc && acc.importMapping){
-          f.colMap = JSON.parse(JSON.stringify(acc.importMapping));
           f.headerRowIdx = guessHeaderRow(f.rows); // 헤더 위치는 파일마다 다시 추정
+          f.colMap = validateOrGuessMapping(acc.importMapping, f.rows[f.headerRowIdx] || []);
           f.mappingLocked = true;
         } else {
           f.colMap = guessColumnMapping(f.rows[f.headerRowIdx] || []);
@@ -2598,7 +2622,9 @@
       allCandidates = allCandidates.concat(cands.map(c => ({ ...c, sourceFile: f.fileName })));
     });
 
-    // 가져온 거래의 "거래 후 잔액"으로 시작 잔액을 역산 — 새 계좌면 자동 적용, 기존 계좌면 선택해서 적용
+    // 시작 잔액을, 과거 거래 하나가 아니라 "가장 최근(제일 마지막) 거래 후 잔액"을 기준으로 역산.
+    // 이렇게 하면 중간에 거래가 하나 빠지거나 잘못 분류돼도, 가져오기 후 계좌 잔액이 결국
+    // 지금 실제 통장에 찍힌 숫자(가장 최근 잔액)와 정확히 맞아떨어짐.
     const touchedAccountIds = Array.from(new Set(ready.map(f => f.accountId)));
     const openingSuggestions = {}; // accountId -> { value, isFresh }
     touchedAccountIds.forEach(accId => {
@@ -2607,11 +2633,19 @@
         .filter(c => c.accountId === accId && c.balance !== null && c.balance !== undefined && !isNaN(c.balance))
         .sort((a,b) => String(a.sortKey||a.date).localeCompare(String(b.sortKey||b.date)));
       if(!candsForAcc.length) return;
-      const first = candsForAcc[0];
-      const signedAmount = first.type === 'transfer'
-        ? (first.toAccountId === accId ? first.amount : -first.amount)
-        : (first.type === 'income' ? first.amount : -first.amount);
-      openingSuggestions[accId] = { value: Math.round(first.balance - signedAmount), isFresh: !alreadyHasData };
+      const latest = candsForAcc[candsForAcc.length - 1]; // 가장 최근 거래 (제일 믿을 수 있는 기준점)
+
+      // 이번에 실제로 "새로" 들어갈 거래들(중복 제외)의 증감을 전부 더함
+      const nonDup = allCandidates.filter(c => c.accountId === accId && !c.dup);
+      const sumDeltas = nonDup.reduce((s,c) => {
+        const signed = c.type === 'transfer'
+          ? (c.toAccountId === accId ? c.amount : -c.amount)
+          : (c.type === 'income' ? c.amount : -c.amount);
+        return s + signed;
+      }, 0);
+
+      // 시작 잔액 + 새로 들어갈 거래 전체 합 = 가장 최근 잔액, 이 식이 항상 성립하도록 역산
+      openingSuggestions[accId] = { value: Math.round(latest.balance - sumDeltas), isFresh: !alreadyHasData };
     });
 
     const openingEntries = Object.entries(openingSuggestions);
