@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<!-- saved from url=(0070)file:///C:/Users/LimKyeongjun/Downloads/personal-budget-tracker_2.html -->
+<!-- saved from url=(0070)file:///C:/Users/LimKyeongjun/Downloads/personal-budget-tracker_3.html -->
 <html lang="ko"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>나의 가계부</title>
 <link rel="preconnect" href="https://fonts.googleapis.com/">
 <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
-<link href="./index_files/css2" rel="stylesheet">
+<link href="./index.heml_files/css2" rel="stylesheet">
 <style>
   :root{
     --paper:#F3F7F0;
@@ -748,10 +748,10 @@
     .header-row h1{ font-size:22px; }
   }
 </style>
-<script src="./index_files/xlsx.full.min.js.다운로드"></script>
-<script src="./index_files/firebase-app-compat.js.다운로드"></script>
-<script src="./index_files/firebase-auth-compat.js.다운로드"></script>
-<script src="./index_files/firebase-firestore-compat.js.다운로드"></script>
+<script src="./index.heml_files/xlsx.full.min.js.다운로드"></script>
+<script src="./index.heml_files/firebase-app-compat.js.다운로드"></script>
+<script src="./index.heml_files/firebase-auth-compat.js.다운로드"></script>
+<script src="./index.heml_files/firebase-firestore-compat.js.다운로드"></script>
 </head>
 <body>
   <div class="wrap" id="app">
@@ -963,9 +963,7 @@
   let accounts = []; // {id, name}
   let recurringRules = []; // {id, name, type, category, accountId, amount, day, startDate, active, generatedThrough}
   let view = 'home'; // 'home' | 'accounts' | 'recurring' | 'import'
-  let importParsedRows = [];
-  let importHeaderRowIdx = 0;
-  let importFileName = '';
+  let importFiles = []; // [{ id, fileName, rows, headerRowIdx, accountId, colMap, mappingLocked, saveMapping }]
   let viewYear, viewMonth;
   let currentType = 'expense';
   let selectedAccountId = 'all';
@@ -2011,7 +2009,7 @@
     });
   }
 
-  /* ===================== IMPORT (엑셀/CSV 가져오기) ===================== */
+  /* ===================== IMPORT (엑셀/CSV 가져오기, 여러 파일/계좌 지원) ===================== */
   function guessHeaderRow(rows){
     let bestIdx = 0, bestScore = -1;
     const limit = Math.min(rows.length, 15);
@@ -2059,34 +2057,9 @@
     return null;
   }
 
-  function currentImportColMap(){
-    const dateSel = document.getElementById('imp-col-date');
-    const modeSel = document.getElementById('imp-amount-mode');
-    const memoSel = document.getElementById('imp-col-memo');
-    const mode = modeSel ? modeSel.value : 'single';
-    const map = {
-      date: dateSel ? parseInt(dateSel.value,10) : -1,
-      amountMode: mode,
-      amountIn: -1, amountOut: -1, amount: -1,
-      memo: memoSel ? parseInt(memoSel.value,10) : -1
-    };
-    if(mode === 'split'){
-      const inSel = document.getElementById('imp-col-in');
-      const outSel = document.getElementById('imp-col-out');
-      map.amountIn = inSel ? parseInt(inSel.value,10) : -1;
-      map.amountOut = outSel ? parseInt(outSel.value,10) : -1;
-    } else {
-      const amtSel = document.getElementById('imp-col-amount');
-      map.amount = amtSel ? parseInt(amtSel.value,10) : -1;
-    }
-    return map;
-  }
-
-  function computeImportCandidates(colMap, accountId){
-    const rows = importParsedRows;
-    const existingSig = new Set(entries.map(e => `${e.date}|${e.type}|${e.amount}|${e.accountId}|${e.memo||''}`));
+  function computeImportCandidatesFor(rows, headerRowIdx, colMap, accountId, existingSig){
     const out = [];
-    for(let i = importHeaderRowIdx + 1; i < rows.length; i++){
+    for(let i = headerRowIdx + 1; i < rows.length; i++){
       const row = rows[i] || [];
       if(row.length === 0) continue;
       const date = colMap.date >= 0 ? normalizeImportDate(row[colMap.date]) : null;
@@ -2113,69 +2086,94 @@
     return out;
   }
 
-  function renderImport(){
-    const hasData = importParsedRows.length > 0;
-    const headerRow = hasData ? (importParsedRows[importHeaderRowIdx] || []) : [];
-    const guessed = hasData ? guessColumnMapping(headerRow) : null;
-    const colOptions = (selected) => headerRow.map((c,idx) =>
+  function colOptionsHtml(headerRow, selected){
+    return headerRow.map((c,idx) =>
       `<option value="${idx}" ${idx===selected?'selected':''}>${idx+1}. ${escapeHtml(String(c==null||c===''?'(빈칸)':c))}</option>`
     ).join('') + `<option value="-1" ${selected===-1?'selected':''}>(사용 안 함)</option>`;
+  }
+
+  function renderImport(){
+    const accOptions = (selected) => accounts.map(a =>
+      `<option value="${a.id}" ${a.id===selected?'selected':''}>${escapeHtml(a.name)}</option>`
+    ).join('') + `<option value="" ${!selected?'selected':''}>계좌 선택...</option>`;
+
+    const fileCards = importFiles.map((f, idx) => {
+      const headerRow = f.rows[f.headerRowIdx] || [];
+      const acc = f.accountId ? getAccount(f.accountId) : null;
+      const usingSaved = !!(acc && acc.importMapping && f.mappingLocked);
+
+      return `
+      <div class="mgmt-add-card" data-file-card="${f.id}">
+        <h2>📄 ${escapeHtml(f.fileName)}</h2>
+        <div class="field-row">
+          <div class="field full"><label>어느 계좌의 거래내역인가요?</label>
+            <select data-file-acc="${f.id}">${accOptions(f.accountId)}</select>
+          </div>
+        </div>
+        ${!f.accountId ? `<div class="hint">계좌를 선택하면 열 지정 단계가 나와요.</div>` : (usingSaved ? `
+          <p style="font-size:12.5px;color:var(--savings);margin:4px 0 10px;">✓ '${escapeHtml(acc.name)}'에 저장된 열 설정을 자동 적용했어요.</p>
+          <button class="reset-btn" data-unlock-mapping="${f.id}" type="button">설정 다시 하기</button>
+        ` : `
+          <div class="field-row">
+            <div class="field full"><label>헤더(제목) 행 번호</label>
+              <input type="number" data-file-headerrow="${f.id}" min="1" max="${f.rows.length}" value="${f.headerRowIdx+1}" />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field full"><label>날짜가 있는 열</label><select data-file-col-date="${f.id}">${colOptionsHtml(headerRow, f.colMap.date)}</select></div>
+          </div>
+          <div class="field-row">
+            <div class="field full"><label>금액 형식</label>
+              <select data-file-amount-mode="${f.id}">
+                <option value="split" ${f.colMap.amountMode==='split'?'selected':''}>입금액 / 출금액 열이 따로 있어요</option>
+                <option value="single" ${f.colMap.amountMode==='single'?'selected':''}>금액 열 하나에 +/- 로 구분돼요</option>
+              </select>
+            </div>
+          </div>
+          ${f.colMap.amountMode === 'split' ? `
+            <div class="field-row">
+              <div class="field"><label>입금액 열</label><select data-file-col-in="${f.id}">${colOptionsHtml(headerRow, f.colMap.amountIn)}</select></div>
+              <div class="field"><label>출금액 열</label><select data-file-col-out="${f.id}">${colOptionsHtml(headerRow, f.colMap.amountOut)}</select></div>
+            </div>
+          ` : `
+            <div class="field-row">
+              <div class="field full"><label>금액 열</label><select data-file-col-amount="${f.id}">${colOptionsHtml(headerRow, f.colMap.amount)}</select></div>
+            </div>
+          `}
+          <div class="field-row">
+            <div class="field full"><label>메모/적요 열 (선택)</label><select data-file-col-memo="${f.id}">${colOptionsHtml(headerRow, f.colMap.memo)}</select></div>
+          </div>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-soft);cursor:pointer;">
+            <input type="checkbox" data-file-save-mapping="${f.id}" ${f.saveMapping?'checked':''} />
+            이 설정을 '${escapeHtml(acc ? acc.name : '')}'에 저장해서 다음부터 자동 적용
+          </label>
+        `)}
+        <button class="icon-btn danger" data-remove-file="${f.id}" type="button" style="margin-top:10px;">🗑 이 파일 빼기</button>
+      </div>
+      `;
+    }).join('');
 
     app.innerHTML = `
       <div class="header-row">
-        <div><h1>엑셀/CSV 가져오기</h1><p>토스 등 은행 앱에서 내보낸 거래내역 파일을 읽어서 한번에 추가해요</p></div>
+        <div><h1>엑셀/CSV 가져오기</h1><p>여러 은행 파일을 한 번에 올려서 한꺼번에 가져올 수 있어요</p></div>
         <button class="ghost-btn" id="backBtn">← 돌아가기</button>
       </div>
 
       <div class="mgmt-add-card">
-        <h2>1. 파일 업로드</h2>
+        <h2>파일 추가</h2>
         ${accounts.length ? `
         <div class="field-row">
-          <div class="field full"><label for="imp-target-acc">어느 계좌의 거래내역인가요?</label>
-            <select id="imp-target-acc">${accounts.map(a=>`<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('')}</select>
+          <div class="field full"><label for="imp-file">파일 선택 — 여러 개를 한 번에 선택할 수 있어요 (.xlsx, .xls, .csv)</label>
+            <input type="file" id="imp-file" accept=".xlsx,.xls,.csv" multiple />
           </div>
         </div>
-        <div class="field-row">
-          <div class="field full"><label for="imp-file">파일 선택 (.xlsx, .xls, .csv)</label><input type="file" id="imp-file" accept=".xlsx,.xls,.csv" /></div>
-        </div>
-        ${importFileName ? `<p style="font-size:12px;color:var(--ink-soft);margin:4px 0 0;">불러온 파일: ${escapeHtml(importFileName)} (${importParsedRows.length}행 감지됨)</p>` : ''}
         ` : `<div class="hint">계좌를 먼저 추가해주세요.</div>`}
       </div>
 
-      ${hasData ? `
-      <div class="mgmt-add-card">
-        <h2>2. 열 지정하기</h2>
-        <div class="field-row">
-          <div class="field full"><label for="imp-header-row">헤더(제목) 행 번호 — 보통 거래내역 표의 첫 줄</label>
-            <input type="number" id="imp-header-row" min="1" max="${importParsedRows.length}" value="${importHeaderRowIdx+1}" />
-          </div>
-        </div>
-        <div class="field-row">
-          <div class="field full"><label for="imp-col-date">날짜가 있는 열</label><select id="imp-col-date">${colOptions(guessed.date)}</select></div>
-        </div>
-        <div class="field-row">
-          <div class="field full"><label for="imp-amount-mode">금액 형식</label>
-            <select id="imp-amount-mode">
-              <option value="split" ${guessed.amountMode==='split'?'selected':''}>입금액 / 출금액 열이 따로 있어요</option>
-              <option value="single" ${guessed.amountMode==='single'?'selected':''}>금액 열 하나에 +/- 로 구분돼요</option>
-            </select>
-          </div>
-        </div>
-        <div id="imp-amount-fields">
-          ${guessed.amountMode === 'split' ? `
-            <div class="field-row">
-              <div class="field"><label for="imp-col-in">입금액 열</label><select id="imp-col-in">${colOptions(guessed.amountIn)}</select></div>
-              <div class="field"><label for="imp-col-out">출금액 열</label><select id="imp-col-out">${colOptions(guessed.amountOut)}</select></div>
-            </div>
-          ` : `
-            <div class="field-row">
-              <div class="field full"><label for="imp-col-amount">금액 열</label><select id="imp-col-amount">${colOptions(guessed.amount)}</select></div>
-            </div>
-          `}
-        </div>
-        <div class="field-row">
-          <div class="field full"><label for="imp-col-memo">메모/적요 열 (선택)</label><select id="imp-col-memo">${colOptions(guessed.memo)}</select></div>
-        </div>
+      ${fileCards}
+
+      ${importFiles.length ? `
+      <div style="padding:4px 4px 14px;">
         <button class="add-btn" id="imp-preview-btn" type="button">미리보기 만들기</button>
       </div>
       ` : ''}
@@ -2188,86 +2186,168 @@
 
   function attachImportEvents(){
     document.getElementById('backBtn').onclick = () => {
-      view = 'home'; importParsedRows = []; importFileName = '';
+      view = 'home'; importFiles = [];
       renderHome();
     };
 
     const fileInput = document.getElementById('imp-file');
     if(fileInput){
       fileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if(!file) return;
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          try{
-            const data = new Uint8Array(ev.target.result);
-            const wb = XLSX.read(data, { type: 'array', cellDates: true });
-            const sheet = wb.Sheets[wb.SheetNames[0]];
-            const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
-            importParsedRows = rows;
-            importHeaderRowIdx = guessHeaderRow(rows);
-            importFileName = file.name;
-            renderImport();
-          } catch(err){
-            console.error(err);
-            alert('파일을 읽는 데 실패했어요. 엑셀(.xlsx) 또는 CSV 파일이 맞는지 확인해주세요.');
-          }
-        };
-        reader.readAsArrayBuffer(file);
+        const files = Array.from(e.target.files || []);
+        if(!files.length) return;
+        let pending = files.length;
+        files.forEach(file => {
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            try{
+              const data = new Uint8Array(ev.target.result);
+              const wb = XLSX.read(data, { type: 'array', cellDates: true });
+              const sheet = wb.Sheets[wb.SheetNames[0]];
+              const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+              const headerRowIdx = guessHeaderRow(rows);
+              const headerRow = rows[headerRowIdx] || [];
+              importFiles.push({
+                id: uid('f'), fileName: file.name, rows, headerRowIdx,
+                accountId: '', colMap: guessColumnMapping(headerRow),
+                mappingLocked: false, saveMapping: true
+              });
+            } catch(err){
+              console.error(err);
+              alert(`'${file.name}' 파일을 읽는 데 실패했어요. 엑셀(.xlsx) 또는 CSV 파일이 맞는지 확인해주세요.`);
+            }
+            pending--;
+            if(pending === 0) renderImport();
+          };
+          reader.readAsArrayBuffer(file);
+        });
       });
     }
 
-    const headerRowInput = document.getElementById('imp-header-row');
-    if(headerRowInput){
-      headerRowInput.addEventListener('change', () => {
-        const v = parseInt(headerRowInput.value, 10);
-        if(v >= 1 && v <= importParsedRows.length){ importHeaderRowIdx = v - 1; renderImport(); }
-      });
-    }
-
-    const amountModeSel = document.getElementById('imp-amount-mode');
-    if(amountModeSel){
-      amountModeSel.addEventListener('change', () => {
-        const headerRow = importParsedRows[importHeaderRowIdx] || [];
-        const area = document.getElementById('imp-amount-fields');
-        const colOptions = (selected) => headerRow.map((c,idx) =>
-          `<option value="${idx}" ${idx===selected?'selected':''}>${idx+1}. ${escapeHtml(String(c==null||c===''?'(빈칸)':c))}</option>`
-        ).join('') + `<option value="-1">(사용 안 함)</option>`;
-        if(amountModeSel.value === 'split'){
-          area.innerHTML = `
-            <div class="field-row">
-              <div class="field"><label for="imp-col-in">입금액 열</label><select id="imp-col-in">${colOptions(-1)}</select></div>
-              <div class="field"><label for="imp-col-out">출금액 열</label><select id="imp-col-out">${colOptions(-1)}</select></div>
-            </div>`;
+    document.querySelectorAll('[data-file-acc]').forEach(sel => {
+      sel.addEventListener('change', (e) => {
+        const id = e.currentTarget.getAttribute('data-file-acc');
+        const f = importFiles.find(x => x.id === id);
+        if(!f) return;
+        f.accountId = e.currentTarget.value;
+        const acc = f.accountId ? getAccount(f.accountId) : null;
+        if(acc && acc.importMapping){
+          f.colMap = JSON.parse(JSON.stringify(acc.importMapping));
+          f.headerRowIdx = guessHeaderRow(f.rows); // 헤더 위치는 파일마다 다시 추정
+          f.mappingLocked = true;
         } else {
-          area.innerHTML = `
-            <div class="field-row">
-              <div class="field full"><label for="imp-col-amount">금액 열</label><select id="imp-col-amount">${colOptions(-1)}</select></div>
-            </div>`;
+          f.colMap = guessColumnMapping(f.rows[f.headerRowIdx] || []);
+          f.mappingLocked = false;
+        }
+        renderImport();
+      });
+    });
+
+    document.querySelectorAll('[data-unlock-mapping]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = e.currentTarget.getAttribute('data-unlock-mapping');
+        const f = importFiles.find(x => x.id === id);
+        if(!f) return;
+        f.mappingLocked = false;
+        renderImport();
+      });
+    });
+
+    document.querySelectorAll('[data-remove-file]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = e.currentTarget.getAttribute('data-remove-file');
+        importFiles = importFiles.filter(x => x.id !== id);
+        renderImport();
+      });
+    });
+
+    document.querySelectorAll('[data-file-headerrow]').forEach(inp => {
+      inp.addEventListener('change', (e) => {
+        const id = e.currentTarget.getAttribute('data-file-headerrow');
+        const f = importFiles.find(x => x.id === id);
+        if(!f) return;
+        const v = parseInt(e.currentTarget.value, 10);
+        if(v >= 1 && v <= f.rows.length){
+          f.headerRowIdx = v - 1;
+          f.colMap = guessColumnMapping(f.rows[f.headerRowIdx] || []);
+          renderImport();
         }
       });
-    }
+    });
+
+    document.querySelectorAll('[data-file-amount-mode]').forEach(sel => {
+      sel.addEventListener('change', (e) => {
+        const id = e.currentTarget.getAttribute('data-file-amount-mode');
+        const f = importFiles.find(x => x.id === id);
+        if(!f) return;
+        f.colMap.amountMode = e.currentTarget.value;
+        renderImport();
+      });
+    });
+    document.querySelectorAll('[data-file-col-date]').forEach(sel => {
+      sel.addEventListener('change', (e) => {
+        const f = importFiles.find(x => x.id === e.currentTarget.getAttribute('data-file-col-date'));
+        if(f) f.colMap.date = parseInt(e.currentTarget.value, 10);
+      });
+    });
+    document.querySelectorAll('[data-file-col-in]').forEach(sel => {
+      sel.addEventListener('change', (e) => {
+        const f = importFiles.find(x => x.id === e.currentTarget.getAttribute('data-file-col-in'));
+        if(f) f.colMap.amountIn = parseInt(e.currentTarget.value, 10);
+      });
+    });
+    document.querySelectorAll('[data-file-col-out]').forEach(sel => {
+      sel.addEventListener('change', (e) => {
+        const f = importFiles.find(x => x.id === e.currentTarget.getAttribute('data-file-col-out'));
+        if(f) f.colMap.amountOut = parseInt(e.currentTarget.value, 10);
+      });
+    });
+    document.querySelectorAll('[data-file-col-amount]').forEach(sel => {
+      sel.addEventListener('change', (e) => {
+        const f = importFiles.find(x => x.id === e.currentTarget.getAttribute('data-file-col-amount'));
+        if(f) f.colMap.amount = parseInt(e.currentTarget.value, 10);
+      });
+    });
+    document.querySelectorAll('[data-file-col-memo]').forEach(sel => {
+      sel.addEventListener('change', (e) => {
+        const f = importFiles.find(x => x.id === e.currentTarget.getAttribute('data-file-col-memo'));
+        if(f) f.colMap.memo = parseInt(e.currentTarget.value, 10);
+      });
+    });
+    document.querySelectorAll('[data-file-save-mapping]').forEach(chk => {
+      chk.addEventListener('change', (e) => {
+        const f = importFiles.find(x => x.id === e.currentTarget.getAttribute('data-file-save-mapping'));
+        if(f) f.saveMapping = e.currentTarget.checked;
+      });
+    });
 
     const previewBtn = document.getElementById('imp-preview-btn');
     if(previewBtn) previewBtn.onclick = renderImportPreview;
   }
 
   function renderImportPreview(){
-    const accSel = document.getElementById('imp-target-acc');
-    const accountId = accSel ? accSel.value : null;
-    const colMap = currentImportColMap();
-    if(colMap.date < 0){ alert('날짜 열을 선택해주세요.'); return; }
-    if(!accountId){ alert('계좌를 선택해주세요.'); return; }
+    const ready = importFiles.filter(f => f.accountId && f.colMap.date >= 0);
+    if(!ready.length){
+      alert('계좌와 날짜 열이 지정된 파일이 하나도 없어요.');
+      return;
+    }
 
-    const candidates = computeImportCandidates(colMap, accountId);
+    const existingSig = new Set(entries.map(e => `${e.date}|${e.type}|${e.amount}|${e.accountId}|${e.memo||''}`));
+    let allCandidates = [];
+    ready.forEach(f => {
+      const cands = computeImportCandidatesFor(f.rows, f.headerRowIdx, f.colMap, f.accountId, existingSig)
+        .map(c => ({ ...c, sourceFile: f.fileName }));
+      allCandidates = allCandidates.concat(cands);
+    });
+
     const area = document.getElementById('imp-preview-area');
-    const newCount = candidates.filter(c => !c.dup).length;
-    const dupCount = candidates.length - newCount;
+    const newCount = allCandidates.filter(c => !c.dup).length;
+    const dupCount = allCandidates.length - newCount;
 
-    const rowsHtml = candidates.slice(0, 15).map(c => `
+    const rowsHtml = allCandidates.slice(0, 20).map(c => `
       <tr>
         <td class="date-cell">${c.date}</td>
         <td><span class="badge ${c.type}">${TYPE_LABEL[c.type]}</span></td>
+        <td class="memo-cell" title="${escapeHtml(accountName(c.accountId))}">${escapeHtml(accountName(c.accountId))}</td>
         <td class="memo-cell" title="${escapeHtml(c.memo)}">${escapeHtml(c.memo) || '-'}</td>
         <td class="amt ${c.type}">${c.type==='income'?'+':'-'}${fmtWon(c.amount)}</td>
         <td style="font-size:11px;color:var(--ink-soft);white-space:nowrap;">${c.dup ? '이미 있음' : ''}</td>
@@ -2277,15 +2357,15 @@
     area.innerHTML = `
       <div class="list-card">
         <div class="list-head">
-          <h2>3. 미리보기</h2>
-          <span class="count">총 ${candidates.length}건 · 새 항목 ${newCount}건${dupCount ? ` · 중복 추정 ${dupCount}건(제외)` : ''}</span>
+          <h2>미리보기</h2>
+          <span class="count">총 ${allCandidates.length}건 · 새 항목 ${newCount}건${dupCount ? ` · 중복 추정 ${dupCount}건(제외)` : ''}</span>
         </div>
-        ${candidates.length ? `
+        ${allCandidates.length ? `
         <table>
-          <thead><tr><th>날짜</th><th>구분</th><th>메모</th><th class="num">금액</th><th></th></tr></thead>
+          <thead><tr><th>날짜</th><th>구분</th><th>계좌</th><th>메모</th><th class="num">금액</th><th></th></tr></thead>
           <tbody>${rowsHtml}</tbody>
         </table>
-        ${candidates.length > 15 ? `<p style="font-size:12px;color:var(--ink-soft);padding:8px 4px;">...외 ${candidates.length-15}건 더 (가져오기엔 전부 포함돼요)</p>` : ''}
+        ${allCandidates.length > 20 ? `<p style="font-size:12px;color:var(--ink-soft);padding:8px 4px;">...외 ${allCandidates.length-20}건 더 (가져오기엔 전부 포함돼요)</p>` : ''}
         ` : `<div class="empty-state"><div class="big">읽을 수 있는 거래가 없어요</div><div class="small">헤더 행 번호와 열 지정을 다시 확인해주세요.</div></div>`}
         <div style="padding:14px 4px;">
           <button class="add-btn" id="imp-confirm-btn" ${newCount===0 ? 'disabled' : ''}>이 중 새 항목 ${newCount}건 가져오기</button>
@@ -2296,23 +2376,36 @@
     const confirmBtn = document.getElementById('imp-confirm-btn');
     if(confirmBtn){
       confirmBtn.onclick = async () => {
-        const toAdd = candidates.filter(c => !c.dup);
+        const toAdd = allCandidates.filter(c => !c.dup);
         toAdd.forEach(c => {
           entries.push({
             id: uid('e'), date: c.date, type: c.type, accountId: c.accountId,
             category: c.category, amount: Math.round(c.amount), memo: c.memo
           });
         });
+
+        // 체크해둔 파일들의 열 설정을 해당 계좌에 저장 (다음부터 자동 적용)
+        ready.forEach(f => {
+          if(f.saveMapping && !f.mappingLocked){
+            const acc = getAccount(f.accountId);
+            if(acc) acc.importMapping = JSON.parse(JSON.stringify(f.colMap));
+          }
+        });
+
         await saveEntries();
+        await saveAccounts();
         alert(`${toAdd.length}건을 가져왔어요.`);
-        importParsedRows = []; importFileName = '';
+        importFiles = [];
         view = 'home';
-        const d = toAdd.length ? new Date(toAdd[toAdd.length-1].date + 'T00:00:00') : null;
-        if(d){ viewYear = d.getFullYear(); viewMonth = d.getMonth(); }
+        if(toAdd.length){
+          const d = new Date(toAdd[toAdd.length-1].date + 'T00:00:00');
+          viewYear = d.getFullYear(); viewMonth = d.getMonth();
+        }
         renderHome();
       };
     }
   }
+
 
   (async function init(){
     if(firebaseReady()){
