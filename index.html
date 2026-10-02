@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<!-- saved from url=(0054)file:///C:/Users/LimKyeongjun/Downloads/budget-v2.html -->
+<!-- saved from url=(0056)file:///C:/Users/LimKyeongjun/Downloads/budget-v3_3.html -->
 <html lang="ko"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>나의 가계부</title>
 <link rel="preconnect" href="https://fonts.googleapis.com/">
 <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
@@ -31,6 +31,11 @@
     --shadow: 0 2px 10px rgba(31,46,40,0.08);
   }
   *{ box-sizing:border-box; }
+  :root{
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  html{ scroll-padding-top: env(safe-area-inset-top, 0px); }
   html,body{ margin:0; padding:0; }
   body{
     background:
@@ -752,6 +757,9 @@
     .memo-cell{ max-width:60px; }
     .header-row h1{ font-size:22px; }
   }
+
+  /* 다크모드 자동 전환은 쓰지 않음 — 항상 원래 디자인 그대로 고정 */
+  :root{ color-scheme: light; }
 </style>
 </head>
 <body>
@@ -768,14 +776,14 @@
 
       <div class="overall">
         <div class="ov-label">지금까지의 총 잔액</div>
-        <div class="ov-main"><span class="num">₩0</span><span class="cap">모든 계좌 잔액 합계</span></div>
+        <div class="ov-main"><span class="num">₩3,637</span><span class="cap">모든 계좌 잔액 합계</span></div>
         <div class="ov-grid">
-          <div class="ov-item income"><div class="t">총 수입</div><div class="v">₩0</div></div>
-          <div class="ov-item expense"><div class="t">총 지출</div><div class="v">₩0</div></div>
+          <div class="ov-item income"><div class="t">총 수입</div><div class="v">₩394,944</div></div>
+          <div class="ov-item expense"><div class="t">총 지출</div><div class="v">₩28,968</div></div>
           <div class="ov-item savings"><div class="t">총 저축</div><div class="v">₩0</div></div>
         </div>
         
-        <div class="by-account"><div class="t-row"><span class="t">계좌별 잔액</span><button class="manage-link" id="toAccountsLink">계좌 관리 →</button></div><div class="acc-row"><span class="acc-name">토스뱅크</span><span class="acc-val ">₩0</span></div><div class="acc-row"><span class="acc-name">국민은행 체크카드통장</span><span class="acc-val ">₩0</span></div><div class="acc-row"><span class="acc-name">신한은행 통장</span><span class="acc-val ">₩0</span></div><div class="acc-row"><span class="acc-name">국민은행 적금</span><span class="acc-val ">₩0</span></div></div>
+        <div class="by-account"><div class="t-row"><span class="t">계좌별 잔액</span><button class="manage-link" id="toAccountsLink">계좌 관리 →</button></div><div class="acc-row"><span class="acc-name">토스뱅크</span><span class="acc-val ">₩3,637</span></div><div class="acc-row"><span class="acc-name">국민은행 체크카드통장</span><span class="acc-val ">₩0</span></div><div class="acc-row"><span class="acc-name">신한은행 통장</span><span class="acc-val ">₩0</span></div><div class="acc-row"><span class="acc-name">국민은행 적금</span><span class="acc-val ">₩0</span></div></div>
       </div>
 
       <div class="month-nav">
@@ -787,10 +795,10 @@
       <div class="acc-tabs"><button class="acc-tab active" data-acc="all">전체</button><button class="acc-tab " data-acc="amuqrqrerhmi1xe">토스뱅크</button><button class="acc-tab " data-acc="amuqrqreril3r7d">국민은행 체크카드통장</button><button class="acc-tab " data-acc="amuqrqrerrl6opk">신한은행 통장</button><button class="acc-tab " data-acc="amuqrqrergtkztz">국민은행 적금</button></div>
 
       <div class="summary">
-        <div class="sum-card income"><div class="label">이번 달 수입</div><div class="value">₩0</div></div>
-        <div class="sum-card expense"><div class="label">이번 달 지출</div><div class="value">₩0</div></div>
+        <div class="sum-card income"><div class="label">이번 달 수입</div><div class="value">₩394,944</div></div>
+        <div class="sum-card expense"><div class="label">이번 달 지출</div><div class="value">₩28,968</div></div>
         <div class="sum-card savings"><div class="label">이번 달 저축</div><div class="value">₩0</div></div>
-        <div class="sum-card balance"><div class="label">남은 잔액</div><div class="value">₩0</div></div>
+        <div class="sum-card balance"><div class="label">남은 잔액</div><div class="value">₩365,976</div></div>
       </div>
 
       <div class="form-card">
@@ -817,9 +825,96 @@
       </div>
 
       <div class="list-card">
-        <div class="list-head"><h2>내역 보기</h2><span class="count">0건</span></div>
-        <div class="empty-state"><div class="big">아직 기록이 없어요</div><div class="small">아래 입력칸에서 첫 내역을 추가해보세요.</div></div>
-        <div class="list-footer"></div>
+        <div class="list-head"><h2>내역 보기</h2><span class="count">12건</span></div>
+        
+      <table><thead><tr><th>날짜</th><th>구분</th><th>카테고리</th><th>메모</th><th class="num">금액</th><th></th></tr></thead>
+      <tbody><tr data-id="emuqsmv6nmmsm9a">
+        <td class="date-cell">10.02</td>
+        <td><span class="badge income">수입</span></td>
+        <td>기타수입<span class="acc-chip">토스뱅크</span></td>
+        <td class="memo-cell" title="이자 모으기">이자 모으기</td>
+        <td class="amt income">+₩296</td>
+        <td><button class="del-btn" data-del="emuqsmv6nmmsm9a">✕</button></td>
+      </tr><tr data-id="emuqsmv6mwz860t">
+        <td class="date-cell">10.02</td>
+        <td><span class="badge income">수입</span></td>
+        <td>기타수입<span class="acc-chip">토스뱅크</span></td>
+        <td class="memo-cell" title="비상금">비상금</td>
+        <td class="amt income">+₩3,300</td>
+        <td><button class="del-btn" data-del="emuqsmv6mwz860t">✕</button></td>
+      </tr><tr data-id="emuqsmv6mqetty9">
+        <td class="date-cell">10.02</td>
+        <td><span class="badge income">수입</span></td>
+        <td>기타수입<span class="acc-chip">토스뱅크</span></td>
+        <td class="memo-cell" title="임경준">임경준</td>
+        <td class="amt income">+₩391,200</td>
+        <td><button class="del-btn" data-del="emuqsmv6mqetty9">✕</button></td>
+      </tr><tr data-id="emuqsmv6m5674y6">
+        <td class="date-cell">10.02</td>
+        <td><span class="badge expense">지출</span></td>
+        <td>기타지출<span class="acc-chip">토스뱅크</span></td>
+        <td class="memo-cell" title="임경준">임경준</td>
+        <td class="amt expense">-₩6,937</td>
+        <td><button class="del-btn" data-del="emuqsmv6m5674y6">✕</button></td>
+      </tr><tr data-id="emuqsmv6m33a35m">
+        <td class="date-cell">10.02</td>
+        <td><span class="badge expense">지출</span></td>
+        <td>기타지출<span class="acc-chip">토스뱅크</span></td>
+        <td class="memo-cell" title="쿠팡이츠">쿠팡이츠</td>
+        <td class="amt expense">-₩11,900</td>
+        <td><button class="del-btn" data-del="emuqsmv6m33a35m">✕</button></td>
+      </tr><tr data-id="emuqsmv6ny5godu">
+        <td class="date-cell">10.01</td>
+        <td><span class="badge expense">지출</span></td>
+        <td>기타지출<span class="acc-chip">토스뱅크</span></td>
+        <td class="memo-cell" title="통장 이자 → 이자 모으기">통장 이자 → 이자 모으기</td>
+        <td class="amt expense">-₩131</td>
+        <td><button class="del-btn" data-del="emuqsmv6ny5godu">✕</button></td>
+      </tr><tr data-id="emuqsmv6nv5e4mf">
+        <td class="date-cell">10.01</td>
+        <td><span class="badge income">수입</span></td>
+        <td>기타수입<span class="acc-chip">토스뱅크</span></td>
+        <td class="memo-cell" title="체크카드 복권 당첨">체크카드 복권 당첨</td>
+        <td class="amt income">+₩17</td>
+        <td><button class="del-btn" data-del="emuqsmv6nv5e4mf">✕</button></td>
+      </tr><tr data-id="emuqsmv6nhodsrm">
+        <td class="date-cell">10.01</td>
+        <td><span class="badge expense">지출</span></td>
+        <td>기타지출<span class="acc-chip">토스뱅크</span></td>
+        <td class="memo-cell" title="비상금">비상금</td>
+        <td class="amt expense">-₩700</td>
+        <td><button class="del-btn" data-del="emuqsmv6nhodsrm">✕</button></td>
+      </tr><tr data-id="emuqsmv6ned79gy">
+        <td class="date-cell">10.01</td>
+        <td><span class="badge expense">지출</span></td>
+        <td>기타지출<span class="acc-chip">토스뱅크</span></td>
+        <td class="memo-cell" title="지미존스 강남역점">지미존스 강남역점</td>
+        <td class="amt expense">-₩8,500</td>
+        <td><button class="del-btn" data-del="emuqsmv6ned79gy">✕</button></td>
+      </tr><tr data-id="emuqsmv6ndczsds">
+        <td class="date-cell">10.01</td>
+        <td><span class="badge income">수입</span></td>
+        <td>기타수입<span class="acc-chip">토스뱅크</span></td>
+        <td class="memo-cell" title="통장 이자">통장 이자</td>
+        <td class="amt income">+₩131</td>
+        <td><button class="del-btn" data-del="emuqsmv6ndczsds">✕</button></td>
+      </tr><tr data-id="emuqsmv6nd4oo2e">
+        <td class="date-cell">10.01</td>
+        <td><span class="badge expense">지출</span></td>
+        <td>기타지출<span class="acc-chip">토스뱅크</span></td>
+        <td class="memo-cell" title="(주)티씨엔컴퍼니강남로데오점">(주)티씨엔컴퍼니강남로데오점</td>
+        <td class="amt expense">-₩300</td>
+        <td><button class="del-btn" data-del="emuqsmv6nd4oo2e">✕</button></td>
+      </tr><tr data-id="emuqsmv6n5qyme4">
+        <td class="date-cell">10.01</td>
+        <td><span class="badge expense">지출</span></td>
+        <td>기타지출<span class="acc-chip">토스뱅크</span></td>
+        <td class="memo-cell" title="비상금">비상금</td>
+        <td class="amt expense">-₩500</td>
+        <td><button class="del-btn" data-del="emuqsmv6n5qyme4">✕</button></td>
+      </tr></tbody></table>
+    
+        <div class="list-footer"><button class="reset-btn" id="resetBtn">전체 내역 초기화</button></div>
       </div>
     </div>
 
@@ -1384,8 +1479,26 @@
         </div>
         <input type="file" id="importDataFile" accept="application/json" style="display:none;" />
       </div>
+      <div class="mgmt-add-card" style="margin-top:18px;">
+        <h2>디버그 정보</h2>
+        <button class="reset-btn" id="toggleDebugBtn" type="button">자세히 보기 (문제 생겼을 때만 사용)</button>
+        <div id="debugArea" style="display:none;margin-top:10px;"></div>
+      </div>
     `;
     attachAccountsEvents();
+  }
+
+  function renderDebugInfo(){
+    const accLines = accounts.map(a => `${a.name} | id=${a.id} | opening=${a.openingBalance} | savings=${a.isSavings} | 계산잔액=${accountBalance(a)}`).join('\n');
+    const entryLines = entries.map(e => {
+      if(e.type==='transfer') return `${e.date} | 이체 | from=${e.fromAccountId} → to=${e.toAccountId} | ${e.amount} | ${e.memo||''}`;
+      return `${e.date} | ${e.type} | accountId=${e.accountId} | ${e.amount} | ${e.memo||''}`;
+    }).join('\n');
+    return `<p style="font-size:11.5px;color:var(--ink-soft);margin:0 0 6px;">계좌 목록 (${accounts.length}개)</p>
+      <pre style="white-space:pre-wrap;font-size:11px;background:#fff;border:1px solid var(--rule-strong);border-radius:8px;padding:10px;overflow-x:auto;">${escapeHtml(accLines||'(없음)')}</pre>
+      <p style="font-size:11.5px;color:var(--ink-soft);margin:12px 0 6px;">내역 목록 (${entries.length}건)</p>
+      <pre style="white-space:pre-wrap;font-size:11px;background:#fff;border:1px solid var(--rule-strong);border-radius:8px;padding:10px;overflow-x:auto;max-height:300px;overflow-y:auto;">${escapeHtml(entryLines||'(없음)')}</pre>
+      <p style="font-size:11px;color:var(--ink-soft);margin-top:8px;">동기화: ${syncMode?'켜짐 (Firestore)':'꺼짐 (이 브라우저만)'}</p>`;
   }
 
   function attachAccountsEvents(){
@@ -1444,6 +1557,11 @@
     document.getElementById('importDataFile').addEventListener('change', e=>{
       const file = e.target.files[0]; if(file) importBackupFile(file); e.target.value='';
     });
+    document.getElementById('toggleDebugBtn').onclick = ()=>{
+      const area = document.getElementById('debugArea');
+      if(area.style.display === 'none'){ area.innerHTML = renderDebugInfo(); area.style.display = 'block'; }
+      else { area.style.display = 'none'; }
+    };
   }
 
   function exportData(){
