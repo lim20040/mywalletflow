@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0071)file:///C:/Users/LimKyeongjun/Downloads/personal-budget-tracker_14.html -->
+<!-- saved from url=(0071)file:///C:/Users/LimKyeongjun/Downloads/personal-budget-tracker_15.html -->
 <html lang="ko"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -827,6 +827,11 @@
         </div>
       
         <div class="acc-row">
+          <span class="acc-name">미분류</span>
+          <span class="acc-val ">₩271,600</span>
+        </div>
+      
+        <div class="acc-row">
           <span class="acc-name">토스뱅크</span>
           <span class="acc-val ">₩189,235</span>
         </div>
@@ -834,11 +839,6 @@
         <div class="acc-row">
           <span class="acc-name">국민은행 나라사랑 고정비</span>
           <span class="acc-val ">₩32,342</span>
-        </div>
-      
-        <div class="acc-row">
-          <span class="acc-name">미분류</span>
-          <span class="acc-val neg">-₩28,400</span>
         </div>
       
         </div>
@@ -1125,6 +1125,23 @@
         changed = true;
       }
     });
+
+    // 안전장치: 계좌가 바뀌거나 동기화가 꼬여서 "존재하지 않는 계좌"를 가리키는 내역이 생기면,
+    // 돈이 화면에서 사라져 보이지 않도록 자동으로 '미분류' 계좌로 옮겨서 복구함.
+    const validIds = new Set(accounts.map(a => a.id));
+    entries.forEach(e => {
+      if(e.type === 'transfer'){
+        let fixed = false;
+        if(e.fromAccountId && !validIds.has(e.fromAccountId)){ e.fromAccountId = ensureUnassigned().id; fixed = true; }
+        if(e.toAccountId && !validIds.has(e.toAccountId)){ e.toAccountId = ensureUnassigned().id; fixed = true; }
+        if(fixed){ validIds.add(ensureUnassigned().id); changed = true; }
+      } else if(e.accountId && !validIds.has(e.accountId)){
+        e.accountId = ensureUnassigned().id;
+        validIds.add(e.accountId);
+        changed = true;
+      }
+    });
+
     if(changed){ await saveAccounts(); await saveEntries(); }
   }
 
