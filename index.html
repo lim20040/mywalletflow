@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0070)file:///C:/Users/LimKyeongjun/Downloads/personal-budget-tracker_5.html -->
+<!-- saved from url=(0070)file:///C:/Users/LimKyeongjun/Downloads/personal-budget-tracker_6.html -->
 <html lang="ko"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2068,12 +2068,63 @@
       else type = 'expense';
 
       const amount = Math.abs(amountRaw);
+      const balance = numberTokens.length >= 2 ? parseAmountCell(numberTokens[numberTokens.length - 1]) : null;
       const memo = rest.replace(/-?\d{1,3}(?:,\d{3})*(?:\.\d+)?/g, ' ').replace(/입금|출금/g,' ').replace(/\s+/g,' ').trim();
       const category = type === 'income' ? '기타수입' : '기타지출';
       const sig = `${date}|${type}|${amount}|${accountId}|${memo}`;
-      out.push({ date, type, amount, memo, category, accountId, dup: existingSig.has(sig) });
+      out.push({ date, type, amount, memo, category, accountId, balance, dup: existingSig.has(sig) });
     });
     return out;
+  }
+
+  // 은행 "엑셀" 파일이 사실 HTML 표인 경우가 많아서, 여러 방식으로 시도해서 읽음
+  function parseHtmlTableToRows(htmlText){
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlText, 'text/html');
+    const table = doc.querySelector('table');
+    if(!table) return [];
+    const rows = [];
+    table.querySelectorAll('tr').forEach(tr => {
+      const cells = Array.from(tr.querySelectorAll('td,th')).map(td => td.textContent.replace(/\s+/g,' ').trim());
+      if(cells.some(c => c !== '')) rows.push(cells);
+    });
+    return rows;
+  }
+
+  async function parseSpreadsheetFile(arrayBuffer){
+    let text = '';
+    try{ text = new TextDecoder('utf-8').decode(arrayBuffer); } catch(e){ text = ''; }
+
+    // 1) HTML 표로 위장된 "엑셀" 파일인지 먼저 확인 (은행 다운로드 파일에 흔함)
+    if(/<table/i.test(text) || /<html/i.test(text)){
+      const rows = parseHtmlTableToRows(text);
+      if(rows.length > 0) return rows;
+    }
+
+    // 2) 진짜 엑셀(xlsx/xls) 바이너리로 시도
+    try{
+      const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array', cellDates: true });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+      if(rows.length > 0) return rows;
+    } catch(e){ /* 다음 방법 시도 */ }
+
+    // 3) 텍스트로 다시 XLSX 파서에 시도 (csv 등 SheetJS가 자동 인식)
+    try{
+      const wb2 = XLSX.read(text, { type: 'string', cellDates: true });
+      const sheet2 = wb2.Sheets[wb2.SheetNames[0]];
+      const rows2 = XLSX.utils.sheet_to_json(sheet2, { header: 1, raw: false, defval: '' });
+      if(rows2.length > 0) return rows2;
+    } catch(e){ /* 다음 방법 시도 */ }
+
+    // 4) 마지막 수단: 쉼표/탭으로 구분된 일반 텍스트로 처리
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if(lines.length > 0){
+      const delim = lines[0].includes('\t') ? '\t' : (lines[0].includes(',') ? ',' : null);
+      if(delim) return lines.map(l => l.split(delim));
+    }
+
+    throw new Error('지원하지 않는 파일 형식이에요.');
   }
 
   function guessHeaderRow(rows){
@@ -2092,7 +2143,7 @@
   }
 
   function guessColumnMapping(headerRow){
-    const map = { date:-1, amountMode:'single', amountIn:-1, amountOut:-1, amount:-1, memo:-1 };
+    const map = { date:-1, amountMode:'single', amountIn:-1, amountOut:-1, amount:-1, memo:-1, balance:-1 };
     headerRow.forEach((cell, idx) => {
       const s = String(cell==null?'':cell);
       if(map.date===-1 && /(일시|날짜|거래일)/.test(s)) map.date = idx;
@@ -2100,6 +2151,7 @@
       if(/출금/.test(s)) map.amountOut = idx;
       if(map.amount===-1 && /(거래금액|금액)/.test(s) && !/입금|출금/.test(s)) map.amount = idx;
       if(map.memo===-1 && /(적요|메모|내용|상대|설명|가맹점)/.test(s)) map.memo = idx;
+      if(map.balance===-1 && /잔액/.test(s)) map.balance = idx;
     });
     map.amountMode = (map.amountIn>=0 || map.amountOut>=0) ? 'split' : 'single';
     return map;
@@ -2146,8 +2198,10 @@
       }
       const memo = colMap.memo >= 0 ? String(row[colMap.memo]==null?'':row[colMap.memo]).trim() : '';
       const category = type === 'income' ? '기타수입' : '기타지출';
+      const balance = (colMap.balance >= 0 && row[colMap.balance] !== '' && row[colMap.balance] != null)
+        ? parseAmountCell(row[colMap.balance]) : null;
       const sig = `${date}|${type}|${amount}|${accountId}|${memo}`;
-      out.push({ date, type, amount, memo, category, accountId, dup: existingSig.has(sig) });
+      out.push({ date, type, amount, memo, category, accountId, balance, dup: existingSig.has(sig) });
     }
     return out;
   }
@@ -2222,6 +2276,9 @@
           `}
           <div class="field-row">
             <div class="field full"><label>메모/적요 열 (선택)</label><select data-file-col-memo="${f.id}">${colOptionsHtml(headerRow, f.colMap.memo)}</select></div>
+          </div>
+          <div class="field-row">
+            <div class="field full"><label>거래 후 잔액 열 (선택 — 새 계좌의 시작 잔액을 자동 계산할 때 써요)</label><select data-file-col-balance="${f.id}">${colOptionsHtml(headerRow, f.colMap.balance)}</select></div>
           </div>
           <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-soft);cursor:pointer;">
             <input type="checkbox" data-file-save-mapping="${f.id}" ${f.saveMapping?'checked':''} />
@@ -2298,10 +2355,7 @@
                   pdfLines: lines, accountId: '', saveMapping: false
                 });
               } else {
-                const data = new Uint8Array(ev.target.result);
-                const wb = XLSX.read(data, { type: 'array', cellDates: true });
-                const sheet = wb.Sheets[wb.SheetNames[0]];
-                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+                const rows = await parseSpreadsheetFile(ev.target.result);
                 const headerRowIdx = guessHeaderRow(rows);
                 const headerRow = rows[headerRowIdx] || [];
                 importFiles.push({
@@ -2436,6 +2490,12 @@
         if(f) f.colMap.memo = parseInt(e.currentTarget.value, 10);
       });
     });
+    document.querySelectorAll('[data-file-col-balance]').forEach(sel => {
+      sel.addEventListener('change', (e) => {
+        const f = importFiles.find(x => x.id === e.currentTarget.getAttribute('data-file-col-balance'));
+        if(f) f.colMap.balance = parseInt(e.currentTarget.value, 10);
+      });
+    });
     document.querySelectorAll('[data-file-save-mapping]').forEach(chk => {
       chk.addEventListener('change', (e) => {
         const f = importFiles.find(x => x.id === e.currentTarget.getAttribute('data-file-save-mapping'));
@@ -2462,6 +2522,30 @@
         : computeImportCandidatesFor(f.rows, f.headerRowIdx, f.colMap, f.accountId, existingSig);
       allCandidates = allCandidates.concat(cands.map(c => ({ ...c, sourceFile: f.fileName })));
     });
+
+    // 계좌에 아직 내역이 하나도 없는 "새 계좌"라면, 가져온 거래의 잔액 정보로 시작 잔액을 자동 계산
+    const touchedAccountIds = Array.from(new Set(ready.map(f => f.accountId)));
+    const openingSuggestions = {}; // accountId -> 계산된 시작 잔액
+    touchedAccountIds.forEach(accId => {
+      const alreadyHasData = entries.some(e => e.accountId === accId || e.fromAccountId === accId || e.toAccountId === accId);
+      if(alreadyHasData) return; // 기존 내역이 있는 계좌는 건드리지 않음 (덮어쓰기 방지)
+      const candsForAcc = allCandidates
+        .filter(c => c.accountId === accId && c.balance !== null && c.balance !== undefined && !isNaN(c.balance))
+        .sort((a,b) => a.date.localeCompare(b.date));
+      if(!candsForAcc.length) return;
+      const first = candsForAcc[0];
+      const signedAmount = first.type === 'income' ? first.amount : -first.amount;
+      openingSuggestions[accId] = Math.round(first.balance - signedAmount);
+    });
+
+    const openingNoteHtml = Object.keys(openingSuggestions).length ? `
+      <div class="hint" style="margin:0 0 12px;">
+        💡 새 계좌의 시작 잔액을 자동으로 맞출게요:<br/>
+        ${Object.entries(openingSuggestions).map(([accId, val]) =>
+          `· ${escapeHtml(accountName(accId))}: ${fmtSigned(val)}`
+        ).join('<br/>')}
+      </div>
+    ` : '';
 
     const area = document.getElementById('imp-preview-area');
     const newCount = allCandidates.filter(c => !c.dup).length;
@@ -2492,6 +2576,7 @@
         ${allCandidates.length > 20 ? `<p style="font-size:12px;color:var(--ink-soft);padding:8px 4px;">...외 ${allCandidates.length-20}건 더 (가져오기엔 전부 포함돼요)</p>` : ''}
         ` : `<div class="empty-state"><div class="big">읽을 수 있는 거래가 없어요</div><div class="small">헤더 행 번호와 열 지정을 다시 확인해주세요.</div></div>`}
         <div style="padding:14px 4px;">
+          ${openingNoteHtml}
           <button class="add-btn" id="imp-confirm-btn" ${newCount===0 ? 'disabled' : ''}>이 중 새 항목 ${newCount}건 가져오기</button>
         </div>
       </div>
@@ -2516,9 +2601,16 @@
           }
         });
 
+        // 새 계좌의 시작 잔액 자동 적용
+        const appliedOpenings = [];
+        Object.entries(openingSuggestions).forEach(([accId, val]) => {
+          const acc = getAccount(accId);
+          if(acc){ acc.openingBalance = val; appliedOpenings.push(`${acc.name}: ${fmtSigned(val)}`); }
+        });
+
         await saveEntries();
         await saveAccounts();
-        alert(`${toAdd.length}건을 가져왔어요.`);
+        alert(`${toAdd.length}건을 가져왔어요.${appliedOpenings.length ? '\n\n시작 잔액 자동 설정:\n' + appliedOpenings.join('\n') : ''}`);
         importFiles = [];
         view = 'home';
         if(toAdd.length){
