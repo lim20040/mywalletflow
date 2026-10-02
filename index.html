@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<!-- saved from url=(0070)file:///C:/Users/LimKyeongjun/Downloads/personal-budget-tracker_3.html -->
+<!-- saved from url=(0070)file:///C:/Users/LimKyeongjun/Downloads/personal-budget-tracker_4.html -->
 <html lang="ko"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>나의 가계부</title>
 <link rel="preconnect" href="https://fonts.googleapis.com/">
 <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
-<link href="./index.heml_files/css2" rel="stylesheet">
+<link href="./index_files/css2" rel="stylesheet">
 <style>
   :root{
     --paper:#F3F7F0;
@@ -748,10 +748,10 @@
     .header-row h1{ font-size:22px; }
   }
 </style>
-<script src="./index.heml_files/xlsx.full.min.js.다운로드"></script>
-<script src="./index.heml_files/firebase-app-compat.js.다운로드"></script>
-<script src="./index.heml_files/firebase-auth-compat.js.다운로드"></script>
-<script src="./index.heml_files/firebase-firestore-compat.js.다운로드"></script>
+<script src="./index_files/xlsx.full.min.js.다운로드"></script>
+<script src="./index_files/firebase-app-compat.js.다운로드"></script>
+<script src="./index_files/firebase-auth-compat.js.다운로드"></script>
+<script src="./index_files/firebase-firestore-compat.js.다운로드"></script>
 </head>
 <body>
   <div class="wrap" id="app">
@@ -975,6 +975,7 @@
   let syncMode = false;          // true면 Firestore로 자동 동기화 중 (로그인 없음, 모든 기기 공유)
   const SHARED_DOC_PATH = ['budgets', 'shared-budget']; // 모든 기기가 함께 보는 하나의 문서
   let unsubscribeSnapshot = null;
+  let initialSyncDone = false;   // 안전장치: 클라우드에서 첫 데이터를 받기 전엔 절대 덮어쓰지 않음
 
   const today = new Date();
   const todayDate0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -1038,6 +1039,10 @@
   }
 
   async function persistAll(){
+    if(syncMode && !initialSyncDone){
+      console.warn('클라우드 첫 동기화 전이라 저장을 건너뜁니다 (안전장치).');
+      return;
+    }
     if(syncMode && fbDb){
       try{
         await fbDb.collection(SHARED_DOC_PATH[0]).doc(SHARED_DOC_PATH[1]).set({
@@ -1065,6 +1070,7 @@
       entries = (data && data.entries) ? JSON.parse(data.entries) : [];
       recurringRules = (data && data.recurringRules) ? JSON.parse(data.recurringRules) : [];
       await migrateIfNeeded();
+      initialSyncDone = true;
       await applyRecurringAll();
       renderCurrentView();
     }, (err) => {
@@ -2417,6 +2423,7 @@
         if(!snap.exists){
           // 클라우드에 아직 데이터가 없으면, 이 기기의 로컬 데이터가 있으면 올려주고 없으면 기본값으로 시작
           await loadAllLocal();
+          initialSyncDone = true; // 이 최초 1회만 예외적으로 업로드 허용
           await persistAll();
         }
         await subscribeFirestore();
